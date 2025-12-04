@@ -1,0 +1,29 @@
+[package]
+name = "pratica-edilizia"
+version = "1.0.0"
+description = "Applicazione per la gestione di edifici, piani e locali"
+authors = ["Pratica Edilizia"]
+license = ""
+repository = ""
+edition = "2021"
+
+[build-dependencies]
+tauri-build = { version = "1", features = [] }
+
+[dependencies]
+tauri = { version = "1", features = [ "fs-create-dir", "fs-read-file", "dialog-save", "fs-write-file", "fs-exists", "dialog-open", "dialog-message", "dialog-confirm", "updater"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[features]
+# This feature is used for production builds or when `devPath` points to the filesystem and the built-in server is NOT used
+# If you use `tauri dev` ONLY, you can remove this feature
+custom-protocol = ["tauri/custom-protocol"]
+
+
+
+
+
+
+
+

@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pratica Edilizia</title>
+  <!-- Bootstrap CSS -->
+  <link href="vendor/bootstrap/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="styles/main.css">
+</head>
+<body>
+  <div id="app" class="d-flex flex-column vh-100">
+    <!-- Barra di navigazione -->
+    <nav class="navbar navbar-dark bg-primary shadow-sm">
+      <div class="container-fluid flex-wrap gap-3">
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+          <span class="navbar-brand mb-0 h1">Pratica Edilizia</span>
+          <button id="btn-nuovo-calcolo" class="btn btn-outline-light btn-sm">Nuovo</button>
+          <button id="btn-import-json" class="btn btn-outline-light btn-sm">Importa JSON</button>
+          <button id="btn-export-json" class="btn btn-outline-light btn-sm">Esporta JSON</button>
+          <button id="btn-export-excel" class="btn btn-success btn-sm">Esporta Excel</button>
+          <input type="file" id="input-import-json" accept="application/json" class="d-none" />
+        </div>
+        <div class="d-flex gap-2 align-items-center flex-wrap">
+          <button id="btn-edifici" class="btn btn-light btn-sm active">Edifici</button>
+          <button id="btn-locali" class="btn btn-outline-light btn-sm">Locali</button>
+          <button id="btn-report" class="btn btn-outline-light btn-sm">Rapporti</button>
+          <button id="btn-riepilogo-superfici" class="btn btn-outline-light btn-sm">Superfici Residenziali</button>
+          <button id="btn-riepilogo-superfici-non-residenziali" class="btn btn-outline-light btn-sm">Superfici Non Residenziali</button>
+          <button id="btn-costo-costruzione" class="btn btn-outline-light btn-sm">Costo di Costruzione</button>
+          <button id="btn-chiudi-app" class="btn btn-danger btn-sm">Chiudi</button>
+        </div>
+      </div>
+    </nav>
+
+    <!-- Contenuto principale -->
+    <main id="main-content" class="flex-grow-1 overflow-auto p-3">
+      <!-- Vista Edifici (default) -->
+      <div id="view-edifici" class="view active">
+        <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+          <div class="d-flex align-items-center gap-2 flex-wrap">
+            <h2 class="text-primary mb-0">Gestione Edifici</h2>
+            <button id="btn-nuovo-edificio" class="btn btn-success btn-circle btn-circle-lg" aria-label="Aggiungi edificio">+</button>
+          </div>
+        </div>
+        <div class="gestione-edifici-layout">
+          <aside class="edifici-sidebar card shadow-sm">
+            <div class="card-header d-flex justify-content-between align-items-center">
+              <span class="fw-semibold text-primary">Elenco Edifici</span>
+              <span class="badge bg-secondary" id="sidebar-edifici-count">0</span>
+            </div>
+            <div class="list-group list-group-flush" id="sidebar-edifici"></div>
+          </aside>
+          <div class="gestione-edifici-content flex-grow-1">
+            <div id="lista-edifici" class="card shadow-sm"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Vista Locali -->
+      <div id="view-locali" class="view">
+        <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+          <div class="d-flex align-items-center gap-2 flex-wrap">
+            <button id="btn-back-edifici" class="btn btn-icon-blue btn-circle btn-circle-md" title="Torna a Gestione Edifici">⬅</button>
+            <h2 class="text-primary mb-0">Gestione Locali</h2>
+            <button id="btn-nuovo-locale" class="btn btn-success btn-circle btn-circle-lg" aria-label="Aggiungi locale">+</button>
+          </div>
+        </div>
+        <div class="d-flex gap-2 mb-3 align-items-end flex-wrap">
+            <div>
+              <label class="form-label">Edificio</label>
+              <div class="d-flex gap-2">
+                <select id="select-edificio-locali" class="form-select" style="min-width: 220px;">
+                  <option value="">Seleziona Edificio</option>
+                </select>
+                <button id="btn-nuovo-edificio-locali" class="btn btn-success" aria-label="Nuovo edificio">
+                  <span class="fw-bold text-white">+</span>
+                </button>
+              </div>
+            </div>
+            <div>
+              <label class="form-label">Piano</label>
+              <div class="d-flex gap-2">
+                <select id="select-piano-locali" class="form-select" style="min-width: 220px;" disabled>
+                  <option value="">Tutti i piani</option>
+                </select>
+                <button id="btn-nuovo-piano-locali" class="btn btn-success" aria-label="Nuovo piano">
+                  <span class="fw-bold text-white">+</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        <div id="lista-locali" class="card shadow-sm"></div>
+      </div>
+
+      <!-- Vista Report -->
+      <div id="view-report" class="view">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+          <h2 class="text-primary">Report Riepilogativi</h2>
+        </div>
+        <div class="d-flex gap-2 mb-3 align-items-end">
+          <div class="flex-grow-1" style="min-width: 200px;">
+            <label class="form-label">Edificio</label>
+            <select id="select-edificio-report" class="form-select">
+              <option value="">Tutti gli edifici</option>
+            </select>
+          </div>
+          <button id="btn-genera-report" class="btn btn-primary">Genera Report</button>
+        </div>
+        <div id="report-content" class="card shadow-sm"></div>
+      </div>
+
+      <!-- Vista Riepilogo Superfici -->
+      <div id="view-riepilogo-superfici" class="view">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+          <h2 class="text-primary">Riepilogo Superfici per Tipologia</h2>
+        </div>
+        <div id="riepilogo-superfici-content" class="card shadow-sm"></div>
+      </div>
+
+      <!-- Vista Riepilogo Superfici Non Residenziali -->
+      <div id="view-riepilogo-superfici-non-residenziali" class="view">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+          <h2 class="text-primary">Riepilogo Superfici Non Residenziali</h2>
+        </div>
+        <div id="riepilogo-superfici-non-residenziali-content" class="card shadow-sm"></div>
+      </div>
+
+      <!-- Vista Costo di Costruzione -->
+      <div id="view-costo-costruzione" class="view">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+          <h2 class="text-primary">Costo di Costruzione</h2>
+        </div>
+        <div id="costo-costruzione-content" class="card shadow-sm p-4"></div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Modali -->
+  <div id="modal-edificio" class="modal fade" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="modal-edificio-title">Nuovo Edificio</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <form id="form-edificio">
+          <div class="modal-body">
+            <div class="mb-3">
+              <label for="input-nome-edificio" class="form-label">Nome Edificio</label>
+              <input type="text" id="input-nome-edificio" class="form-control" required>
+            </div>
+            <div class="mb-3">
+              <label for="input-indirizzo-edificio" class="form-label">Indirizzo</label>
+              <input type="text" id="input-indirizzo-edificio" class="form-control">
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+            <button type="submit" class="btn btn-primary">Salva</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div id="modal-piano" class="modal fade" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="modal-piano-title">Nuovo Piano</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <form id="form-piano">
+          <div class="modal-body">
+            <div class="mb-3">
+              <label for="input-nome-piano" class="form-label">Nome Piano</label>
+              <input type="text" id="input-nome-piano" class="form-control" required>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+            <button type="submit" class="btn btn-primary">Salva</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div id="modal-duplica-edificio" class="modal fade" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Duplica Edificio</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <form id="form-duplica-edificio">
+          <div class="modal-body">
+            <div class="mb-3">
+              <label for="input-nome-duplica-edificio" class="form-label">Nuovo nome edificio</label>
+              <input type="text" id="input-nome-duplica-edificio" class="form-control" required>
+              <div class="invalid-feedback">Inserisci un nome valido.</div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+            <button type="submit" class="btn btn-primary">Duplica</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div id="modal-locale" class="modal fade" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="modal-locale-title">Nuovo Locale</h5>
+        </div>
+        <div class="modal-body">
+          <div id="form-locale-container">
+            <!-- Il contenuto del form locale verrà caricato dinamicamente -->
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 2000;">
+    <div id="toast-info" class="toast align-items-center text-bg-primary border-0" role="alert" aria-live="assertive" aria-atomic="true">
+      <div class="d-flex">
+        <div class="toast-body" id="toast-info-body">
+          Operazione in corso...
+        </div>
+        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+      </div>
+    </div>
+    <div id="toast-success" class="toast align-items-center text-bg-success border-0" role="alert" aria-live="assertive" aria-atomic="true">
+      <div class="d-flex">
+        <div class="toast-body" id="toast-success-body">
+          Operazione completata con successo.
+        </div>
+        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+      </div>
+    </div>
+    <div id="toast-error" class="toast align-items-center text-bg-danger border-0" role="alert" aria-live="assertive" aria-atomic="true">
+      <div class="d-flex">
+        <div class="toast-body" id="toast-error-body">
+          Si è verificato un errore.
+        </div>
+        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bootstrap JS -->
+  <script src="vendor/bootstrap/bootstrap.bundle.min.js"></script>
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
+

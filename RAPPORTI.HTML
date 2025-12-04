@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <title>Form Immobile</title>
+  <style>
+    .immobile-form {
+      font-family: Arial, sans-serif;
+      font-size: 14px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      align-items: center;
+      padding: 10px;
+      background-color: #fff;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+    }
+
+    .immobile-form > div {
+      display: flex;
+      align-items: center;
+      margin: 0;
+      padding: 0;
+    }
+
+    .label {
+      font-weight: bold;
+      margin-right: 5px;
+      text-align: right;
+      min-width: 70px;
+    }
+
+    .input-field {
+      padding: 2px 6px;
+      border: 1px solid #ccc;
+      border-radius: 3px;
+      font-size: 14px;
+      height: 24px;
+      line-height: 24px;
+    }
+
+    .input-field.yellow {
+      background-color: yellow;
+    }
+
+    .input-field.short {
+      width: 60px;
+    }
+
+    .input-field.medium {
+      width: 100px;
+    }
+
+    .input-field.long {
+      width: 150px;
+    }
+
+    .input-field.full {
+      width: 100%;
+      max-width: 100%;
+    }
+
+    .select-field {
+      padding: 2px 6px;
+      border: 1px solid #ccc;
+      border-radius: 3px;
+      font-size: 14px;
+      height: 24px;
+      line-height: 24px;
+      background-color: white;
+    }
+
+    .select-field.yellow {
+      background-color: yellow;
+    }
+
+    .button {
+      padding: 4px 10px;
+      background-color: #cce5ff;
+      border: 1px solid #99c2ff;
+      border-radius: 4px;
+      font-weight: bold;
+      cursor: pointer;
+      text-decoration: none;
+      color: #003366;
+      font-size: 14px;
+      text-align: center;
+    }
+
+    .button:hover {
+      background-color: #b3d9ff;
+    }
+
+    .specifica-container {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+    }
+
+    .specifica-label {
+      min-width: 70px;
+      font-weight: bold;
+    }
+
+    .specifica-textarea {
+      flex-grow: 1;
+      padding: 5px;
+      border: 1px solid #ccc;
+      border-radius: 3px;
+      resize: vertical;
+      min-height: 40px;
+    }
+
+    .sup-utile {
+      font-size: 18px;
+      font-weight: bold;
+      text-align: center;
+      padding: 8px 12px;
+      border: 1px solid #ccc;
+      border-radius: 3px;
+      background-color: #f9f9f9;
+      min-width: 80px;
+    }
+
+    .piano-btn {
+      padding: 2px 6px;
+      background-color: #e6f2ff;
+      border: 1px solid #99c2ff;
+      border-radius: 3px;
+      font-weight: bold;
+      font-size: 12px;
+      text-align: center;
+      min-width: 30px;
+      cursor: pointer;
+      margin: 0;
+      padding: 2px 6px;
+      line-height: 1.2;
+      box-sizing: border-box;
+      outline: none;
+      transition: background-color 0.2s;
+    }
+
+    .piano-btn.selected {
+      background-color: #cce5ff;
+      border-color: #6699cc;
+    }
+
+    .piano-btn:focus {
+      outline: none;
+    }
+
+    .riga-container {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      width: 100%;
+      flex-wrap: wrap;
+    }
+
+    .riga-container > div {
+      display: flex;
+      align-items: center;
+    }
+
+    /* Stili per la tabella aperture */
+    .aperture-section {
+      margin-top: 20px;
+      width: fit-content;
+      max-width: 100%;
+    }
+
+    .aperture-table {
+      border-collapse: collapse;
+      font-family: Arial, sans-serif;
+      font-size: 16px;
+      margin-top: 10px;
+      table-layout: fixed;
+      width: max-content;
+      max-width: 100%;
+    }
+
+    .aperture-table th {
+      background-color: #f0f0f0;
+      border: 1px solid #ccc;
+      padding: 5px;
+      text-align: center;
+      font-weight: bold;
+      font-size: 16px;
+    }
+
+    .aperture-table td {
+      border: 1px solid #ccc;
+      padding: 2px;
+      text-align: center;
+    }
+
+    .aperture-table input {
+      width: 100%;
+      border: none;
+      padding: 3px;
+      text-align: center;
+      font-size: 14px;
+      box-sizing: border-box;
+    }
+
+    .aperture-table input.yellow-cell {
+      background-color: yellow;
+    }
+
+    .aperture-table input.red-cell {
+      background-color: white;
+      color: black;
+      font-weight: bold;
+    }
+
+    .aperture-table input.red-cell:read-only {
+      background-color: white;
+      color: black;
+      font-weight: bold;
+    }
+
+    .aperture-table input:read-only {
+      background-color: #f9f9f9;
+    }
+
+    .aperture-table select {
+      width: 100%;
+      border: none;
+      padding: 3px;
+      text-align: center;
+      font-size: 16px;
+      background-color: yellow;
+    }
+
+    .btn-add {
+      background-color: #ff3333;
+      color: white;
+      border: none;
+      padding: 8px 20px;
+      font-weight: bold;
+      cursor: pointer;
+      border-radius: 4px;
+      margin-top: 10px;
+      font-size: 12px;
+    }
+
+    .btn-add:hover {
+      background-color: #cc0000;
+    }
+
+    .btn-delete {
+      background-color: black;
+      color: white;
+      border: none;
+      padding: 3px 8px;
+      cursor: pointer;
+      border-radius: 3px;
+      font-size: 11px;
+      font-weight: bold;
+    }
+
+    .btn-sch {
+      background-color: #ff3333;
+      color: white;
+      border: none;
+      padding: 3px 8px;
+      cursor: pointer;
+      border-radius: 3px;
+      font-size: 11px;
+      font-weight: bold;
+      margin-left: 3px;
+    }
+
+    .totale-area {
+      margin-top: 15px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .totale-label {
+      background-color: #99cc00;
+      color: black;
+      padding: 8px 15px;
+      font-weight: bold;
+      border-radius: 4px;
+      font-size: 13px;
+    }
+
+    .totale-value {
+      background-color: #ccff99;
+      color: black;
+      padding: 8px 15px;
+      font-weight: bold;
+      border-radius: 4px;
+      font-size: 14px;
+      min-width: 100px;
+      text-align: center;
+    }
+
+    /* Stili specifici per WordPress - Forza il centramento */
+    .rai-button-container {
+      text-align: center !important;
+      margin: 20px 0 !important;
+      display: flex !important;
+      justify-content: center !important;
+      gap: 10px !important;
+    }
+
+    .rai-button {
+      width: 40px !important;
+      height: 40px !important;
+      border-radius: 50% !important;
+      border: none !important;
+      font-size: 24px !important;
+      font-weight: bold !important;
+      cursor: pointer !important;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2) !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      line-height: 1 !important;
+      padding: 0 !important;
+      margin: 0 !important;
+    }
+
+    .rai-button-add {
+      background-color: #0066cc !important;
+      color: white !important;
+    }
+
+    .rai-button-delete {
+      background-color: #cc0000 !important;
+      color: white !important;
+    }
+
+    .rai-button-duplicate {
+      background-color: #ffcc00 !important;
+      color: black !important;
+    }
+
+    .rai-button-small {
+      width: 30px !important;
+      height: 30px !important;
+      font-size: 18px !important;
+    }
+
+    .rai-button-black {
+      background-color: #000000 !important;
+      color: white !important;
+    }
+  </style>
+</head>
+<body>
+
+  <div style="border: 2px solid #0066cc; border-radius: 8px; padding: 0; margin-bottom: 20px; width: fit-content; max-width: 100%;">
+    <div style="background-color: #0066cc; color: white; padding: 10px; border-radius: 6px 6px 0 0;">
+      <h3 style="margin: 0; font-size: 16px;">LOCALE</h3>
+    </div>
+
+    <div class="immobile-form" style="padding: 10px;">
+      <!-- Container per RAPPORTO RICHIESTO, Specifica e Sup. utile sulla stessa riga -->
+      <div class="riga-container">
+        <div><span class="label">RAPPORTO RICHIESTO</span></div>
+        <div><input type="text" id="rapporto-richiesto" class="input-field short yellow" value="8,00" maxlength="5"></div>
+        <div><span class="label">Determinazione superficie</span></div>
+        <div><input type="text" id="specifica" class="input-field yellow" style="width: 500px;" oninput="RAIaggiornaSupUtile()"></div>
+        <div><span class="label">Sup. utile</span></div>
+        <div><span id="sup-utile" class="sup-utile">0,00</span></div>
+      </div>
+    </div>
+
+    <!-- Sezione Aperture -->
+    <div class="aperture-section" style="padding: 10px;">
+    <table class="aperture-table">
+      <thead>
+        <tr>
+          <th style="width: 40px;">IDAPERTURA</th>
+          <th style="width: 55px;">LARGHEZZA</th>
+          <th style="width: 45px;">ALTEZZA</th>
+          <th style="width: 55px;">HDAVANZALE</th>
+          <th style="width: 45px;">IMPOSTA</th>
+          <th style="width: 55px;">SPORGENZA</th>
+          <th style="width: 45px;">H TOT</th>
+          <th style="width: 45px;">L/2</th>
+          <th style="width: 45px;">UNTERZO</th>
+          <th style="width: 45px;">Intero</th>
+          <th style="width: 70px;">AREA FINESTRATA</th>
+        </tr>
+      </thead>
+      <tbody id="aperture-tbody">
+        <tr id="row-1" data-apertura-id="1">
+          <td><input type="text" class="idapertura-cell" value="1" readonly></td>
+          <td><input type="text" class="yellow-cell larghezza" value="" data-row="1" oninput="RAIcalcolaApertura(1)" onclick="RAIselezionaApertura(1)"></td>
+          <td><input type="text" class="yellow-cell altezza" value="" data-row="1" oninput="RAIcalcolaApertura(1)" onclick="RAIselezionaApertura(1)"></td>
+          <td><input type="text" class="yellow-cell hdavanzale" value="" data-row="1" oninput="RAIcalcolaApertura(1)" onclick="RAIselezionaApertura(1)"></td>
+          <td><input type="text" class="yellow-cell imposta" value="0,20" data-row="1" oninput="RAIcalcolaApertura(1)" onclick="RAIselezionaApertura(1)"></td>
+          <td><input type="text" class="yellow-cell sporgenza" value="" data-row="1" oninput="RAIcalcolaApertura(1)" onclick="RAIselezionaApertura(1)"></td>
+          <td><input type="text" class="yellow-cell htot" value="0,00" readonly data-row="1"></td>
+          <td><input type="text" class="yellow-cell l2" value="0,000" readonly data-row="1"></td>
+          <td><input type="text" class="yellow-cell terzo" value="0,000" readonly data-row="1"></td>
+          <td><input type="text" class="yellow-cell intero" value="0,00" readonly data-row="1"></td>
+          <td><input type="text" class="red-cell area-finestrata" value="0,00" readonly data-row="1"></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div style="display: flex; align-items: center; gap: 15px; margin-top: 10px;">
+      <button onclick="RAIaggiungiNuovaApertura()" class="rai-button rai-button-small rai-button-add">+</button>
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <span style="font-weight: bold; color: #003366;">Superficie Locale:</span>
+        <span id="superficie-locale" style="background-color: #ccff99; color: black; padding: 8px 15px; font-weight: bold; border-radius: 4px; font-size: 14px; min-width: 100px; text-align: center;">0,00</span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <span style="font-weight: bold; color: #003366;">AREA FINESTRATA TOTALE:</span>
+        <span id="totale-area-finestrata" style="background-color: #ccff99; color: black; padding: 8px 15px; font-weight: bold; border-radius: 4px; font-size: 14px; min-width: 100px; text-align: center;">0,00</span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <span style="font-weight: bold; color: #003366;">RAPPORTO:</span>
+        <span id="rapporto" style="background-color: #ccff99; color: black; padding: 8px 15px; font-weight: bold; border-radius: 4px; font-size: 14px; min-width: 100px; text-align: center;">0,00</span>
+        <span id="verifica-rapporto" style="font-weight: bold; color: #003366; font-size: 14px;"></span>
+        <button onclick="RAIeliminaAperturaSelezionata()" class="rai-button rai-button-small rai-button-black">×</button>
+        <button onclick="RAIduplicaAperturaSelezionata()" class="rai-button rai-button-small rai-button-duplicate">D</button>
+      </div>
+    </div>
+    </div>
+  </div>
+
+  <script>
+    // Protezione per WordPress - evita conflitti con jQuery
+    (function() {
+      'use strict';
+
+    // Calcola i valori della prima riga all'avvio
+    window.addEventListener('DOMContentLoaded', function() {
+      RAIcalcolaApertura(1);
+      
+      // Event listener per RAPPORTO RICHIESTO
+      document.getElementById('rapporto-richiesto').addEventListener('input', function() {
+        RAIcalcolaRapporto();
+      });
+      
+      // Test se la funzione selezionaApertura esiste
+      console.log('Funzione selezionaApertura esiste?', typeof RAIselezionaApertura);
+      
+      // Protezione per WordPress - assicura che le funzioni siano disponibili globalmente
+      window.RAIaggiungiNuovaApertura = RAIaggiungiNuovaApertura;
+      window.RAIeliminaAperturaSelezionata = RAIeliminaAperturaSelezionata;
+      window.RAIduplicaAperturaSelezionata = RAIduplicaAperturaSelezionata;
+      window.RAIselezionaApertura = RAIselezionaApertura;
+      window.RAIaggiornaSupUtile = RAIaggiornaSupUtile;
+      window.RAIcalcolaRapporto = RAIcalcolaRapporto;
+      window.RAIcalcolaTotaleAreaFinestrata = RAIcalcolaTotaleAreaFinestrata;
+      window.RAIrinumeraAperture = RAIrinumeraAperture;
+      window.RAIparseItalianNumber = RAIparseItalianNumber;
+      window.RAIformatItalianNumber = RAIformatItalianNumber;
+      window.RAIcalcolaApertura = RAIcalcolaApertura;
+    });
+
+    // Funzione per aggiornare Sup. Utile in tempo reale
+    function RAIaggiornaSupUtile() {
+      const expr = document.getElementById("specifica").value;
+      let result = 0;
+
+      try {
+        if (expr.trim() !== "") {
+          result = eval(expr);
+        }
+      } catch (e) {
+        result = 0;
+      }
+
+      const formattedResult = result.toFixed(2).replace('.', ',');
+      document.getElementById("sup-utile").textContent = formattedResult;
+      document.getElementById("superficie-locale").textContent = formattedResult;
+      
+      // Aggiorna il rapporto
+      RAIcalcolaRapporto();
+    }
+
+    // Funzione per calcolare il rapporto
+    function RAIcalcolaRapporto() {
+      const superficieLocale = RAIparseItalianNumber(document.getElementById("superficie-locale").textContent);
+      const totaleAreaFinestrata = RAIparseItalianNumber(document.getElementById("totale-area-finestrata").textContent);
+      const rapportoRichiesto = RAIparseItalianNumber(document.getElementById("rapporto-richiesto").value);
+      
+      let rapporto = 0;
+      if (totaleAreaFinestrata > 0) {
+        rapporto = superficieLocale / totaleAreaFinestrata;
+      }
+      
+      const rapportoElement = document.getElementById("rapporto");
+      const verificaElement = document.getElementById("verifica-rapporto");
+      
+      rapportoElement.textContent = rapporto.toFixed(2).replace('.', ',');
+      
+      // Logica di validazione
+      if (rapporto > rapportoRichiesto) {
+        // Rapporto > Richiesto: ROSSO + "NON VERIFICATO"
+        rapportoElement.style.backgroundColor = "#ff6666";
+        rapportoElement.style.color = "white";
+        verificaElement.textContent = "NON VERIFICATO";
+        verificaElement.style.color = "#cc0000";
+      } else {
+        // Rapporto <= Richiesto: VERDE + nessuna etichetta
+        rapportoElement.style.backgroundColor = "#ccff99";
+        rapportoElement.style.color = "black";
+        verificaElement.textContent = "";
+      }
+    }
+
+    // Contatore per le nuove righe aperture
+    let aperturaCounter = 1;
+    
+    // Variabile per tracciare l'apertura selezionata
+    let aperturaSelezionata = null;
+    let aperturaSelezionataLocale = {};
+
+    // Funzione per rinumerare le aperture
+    function RAIrinumeraAperture() {
+      const rows = document.querySelectorAll('#aperture-tbody tr');
+      rows.forEach((row, index) => {
+        const idaperturaCell = row.querySelector('.idapertura-cell');
+        if (idaperturaCell) {
+          idaperturaCell.value = index + 1;
+          row.setAttribute('data-apertura-id', index + 1);
+        }
+      });
+    }
+
+    // Funzione per convertire valori con virgola in numeri
+    function RAIparseItalianNumber(value) {
+      if (typeof value === 'string') {
+        return parseFloat(value.replace(',', '.')) || 0;
+      }
+      return parseFloat(value) || 0;
+    }
+
+    // Funzione per formattare numeri in formato italiano
+    function RAIformatItalianNumber(num, decimals = 2) {
+      return num.toFixed(decimals).replace('.', ',');
+    }
+
+    // Funzione per calcolare i valori di un'apertura
+    function RAIcalcolaApertura(rowId) {
+      const row = document.getElementById('row-' + rowId);
+      if (!row) return;
+
+      // Leggi i valori (Nz = tratta null/undefined come 0)
+      const larghezza = RAIparseItalianNumber(row.querySelector('.larghezza').value) || 0;
+      const altezza = RAIparseItalianNumber(row.querySelector('.altezza').value) || 0;
+      const hdavanzale = RAIparseItalianNumber(row.querySelector('.hdavanzale').value) || 0;
+      const imposta = RAIparseItalianNumber(row.querySelector('.imposta').value) || 0;
+      const sporgenza = RAIparseItalianNumber(row.querySelector('.sporgenza').value) || 0;
+
+      // Calcola H TOT (HTOTALE) = ALTEZZA + HDAVANZALE + IMPOSTA
+      const htot = altezza + hdavanzale + imposta;
+
+      // Calcola L/2 = SPORGENZA / 2
+      const l2 = sporgenza / 2;
+
+      // Calcola 1/3 = LARGHEZZA / 3 (solo per riferimento, NON usato nel calcolo finale)
+      const unTerzoRiferimento = larghezza / 3;
+
+      // Calcola INTERO e UNTERZO in base alla logica fornita
+      let unterzo = altezza / 3; // Valore iniziale per UNTERZO
+
+      if (sporgenza >= 1.21) {
+        const elemezzi = sporgenza / 2;
+        unterzo = elemezzi - imposta;
+        if (unterzo > altezza) {
+          unterzo = altezza;
+        }
+      } else {
+        unterzo = 0;
+      }
+
+      let intero = 0;
+      if (hdavanzale > 0) {
+        if (hdavanzale <= 0.6) {
+          intero = altezza - (unterzo + 0.6);
+        } else {
+          intero = altezza - unterzo;
+        }
+      } else {
+        intero = (altezza - 0.6) - unterzo;
+      }
+
+      if (intero < 0) {
+        unterzo = unterzo + intero;
+        intero = 0;
+      }
+
+      // AREA FINESTRATA = LARGHEZZA * (INTERO + (UNTERZO / 3))
+      let areaFinestrata = 0;
+      if (larghezza > 0) {
+        areaFinestrata = larghezza * (intero + (unterzo / 3));
+      }
+
+      // Aggiorna i campi
+      row.querySelector('.htot').value = RAIformatItalianNumber(htot);
+      row.querySelector('.l2').value = RAIformatItalianNumber(l2, 3); // L/2 = sporgenza/2
+      row.querySelector('.terzo').value = RAIformatItalianNumber(unterzo, 3); // ✅ CORRETTO: mostra il vero UNTERZO
+      row.querySelector('.intero').value = RAIformatItalianNumber(intero);
+      row.querySelector('.area-finestrata').value = RAIformatItalianNumber(areaFinestrata);
+
+      // Aggiorna il totale
+      RAIcalcolaTotaleAreaFinestrata();
+    }
+
+    // Funzione per calcolare il totale area finestrata
+    function RAIcalcolaTotaleAreaFinestrata() {
+      let totale = 0;
+      const aree = document.querySelectorAll('.area-finestrata');
+      aree.forEach(area => {
+        totale += RAIparseItalianNumber(area.value);
+      });
+      document.getElementById('totale-area-finestrata').textContent = RAIformatItalianNumber(totale);
+      
+      // Aggiorna il rapporto
+      RAIcalcolaRapporto();
+    }
+
+    // Funzione per aggiungere una nuova apertura
+    function RAIaggiungiNuovaApertura() {
+      aperturaCounter++;
+      const tbody = document.getElementById('aperture-tbody');
+      const numeroApertura = tbody.querySelectorAll('tr').length + 1;
+      
+      const newRow = document.createElement('tr');
+      newRow.id = 'row-' + aperturaCounter;
+      newRow.setAttribute('data-apertura-id', numeroApertura);
+      newRow.innerHTML = `
+        <td><input type="text" class="idapertura-cell" value="${numeroApertura}" readonly></td>
+        <td><input type="text" class="yellow-cell larghezza" value="" data-row="${aperturaCounter}" oninput="RAIcalcolaApertura(${aperturaCounter})" onclick="RAIselezionaApertura(${aperturaCounter})"></td>
+        <td><input type="text" class="yellow-cell altezza" value="" data-row="${aperturaCounter}" oninput="RAIcalcolaApertura(${aperturaCounter})" onclick="RAIselezionaApertura(${aperturaCounter})"></td>
+        <td><input type="text" class="yellow-cell hdavanzale" value="" data-row="${aperturaCounter}" oninput="RAIcalcolaApertura(${aperturaCounter})" onclick="RAIselezionaApertura(${aperturaCounter})"></td>
+        <td><input type="text" class="yellow-cell imposta" value="0,20" data-row="${aperturaCounter}" oninput="RAIcalcolaApertura(${aperturaCounter})" onclick="RAIselezionaApertura(${aperturaCounter})"></td>
+        <td><input type="text" class="yellow-cell sporgenza" value="" data-row="${aperturaCounter}" oninput="RAIcalcolaApertura(${aperturaCounter})" onclick="RAIselezionaApertura(${aperturaCounter})"></td>
+        <td><input type="text" class="yellow-cell htot" value="0,00" readonly data-row="${aperturaCounter}"></td>
+        <td><input type="text" class="yellow-cell l2" value="0,000" readonly data-row="${aperturaCounter}"></td>
+        <td><input type="text" class="yellow-cell terzo" value="0,000" readonly data-row="${aperturaCounter}"></td>
+        <td><input type="text" class="yellow-cell intero" value="0,00" readonly data-row="${aperturaCounter}"></td>
+        <td><input type="text" class="red-cell area-finestrata" value="0,00" readonly data-row="${aperturaCounter}"></td>
+      `;
+      tbody.appendChild(newRow);
+      
+      // Calcola automaticamente i valori per la nuova riga
+      RAIcalcolaApertura(aperturaCounter);
+    }
+
+    // Funzione per eliminare una riga
+    function RAIeliminaRiga(rowId) {
+      const row = document.getElementById('row-' + rowId);
+      if (row) {
+        if (confirm('Vuoi eliminare questa apertura?')) {
+          row.remove();
+          RAIrinumeraAperture();
+          RAIcalcolaTotaleAreaFinestrata();
+        }
+      }
+    }
+
+    // Funzione per selezionare un'apertura
+    function RAIselezionaApertura(rowId) {
+      console.log('=== FUNZIONE SELEZIONA APERTURA CHIAMATA ===');
+      console.log('Selezionando apertura:', rowId);
+      
+      // Rimuovi la selezione precedente
+      const righePrecedenti = document.querySelectorAll('.aperture-table tr');
+      righePrecedenti.forEach(riga => {
+        riga.style.backgroundColor = '';
+      });
+      
+      // Seleziona la nuova riga
+      const riga = document.getElementById('row-' + rowId);
+      if (riga) {
+        riga.style.backgroundColor = '#e6f3ff';
+        aperturaSelezionata = rowId;
+        aperturaSelezionataLocale[1] = rowId;
+      }
+    }
+
+    // Funzione per eliminare l'apertura selezionata (primo locale)
+    function RAIeliminaAperturaSelezionata() {
+      const aperturaSelezionataPrimoLocale = aperturaSelezionataLocale[1];
+      
+      if (aperturaSelezionataPrimoLocale) {
+        const riga = document.getElementById('row-' + aperturaSelezionataPrimoLocale);
+        if (riga && confirm('Vuoi eliminare questa apertura?')) {
+          riga.remove();
+          RAIrinumeraAperture();
+          RAIcalcolaTotaleAreaFinestrata();
+          aperturaSelezionataLocale[1] = null;
+          aperturaSelezionata = null;
+        }
+      } else {
+        alert('Seleziona prima un\'apertura cliccando su una riga della tabella');
+      }
+    }
+
+    // Funzione per duplicare l'apertura selezionata (primo locale)
+    function RAIduplicaAperturaSelezionata() {
+      const aperturaSelezionataPrimoLocale = aperturaSelezionataLocale[1];
+      
+      if (aperturaSelezionataPrimoLocale) {
+        const rigaOriginale = document.getElementById('row-' + aperturaSelezionataPrimoLocale);
+        if (rigaOriginale) {
+          // Ottieni i valori della riga originale
+          const larghezza = rigaOriginale.querySelector('.larghezza').value;
+          const altezza = rigaOriginale.querySelector('.altezza').value;
+          const hdavanzale = rigaOriginale.querySelector('.hdavanzale').value;
+          const imposta = rigaOriginale.querySelector('.imposta').value;
+          const sporgenza = rigaOriginale.querySelector('.sporgenza').value;
+          
+          // Aggiungi una nuova apertura con gli stessi valori
+          aperturaCounter++;
+          const tbody = document.getElementById('aperture-tbody');
+          const numeroApertura = tbody.querySelectorAll('tr').length + 1;
+          
+          const newRow = document.createElement('tr');
+          newRow.id = 'row-' + aperturaCounter;
+          newRow.setAttribute('data-apertura-id', numeroApertura);
+          newRow.innerHTML = `
+            <td><input type="text" class="idapertura-cell" value="${numeroApertura}" readonly></td>
+            <td><input type="text" class="yellow-cell larghezza" value="${larghezza}" data-row="${aperturaCounter}" oninput="RAIcalcolaApertura(${aperturaCounter})" onclick="RAIselezionaApertura(${aperturaCounter})"></td>
+            <td><input type="text" class="yellow-cell altezza" value="${altezza}" data-row="${aperturaCounter}" oninput="RAIcalcolaApertura(${aperturaCounter})" onclick="RAIselezionaApertura(${aperturaCounter})"></td>
+            <td><input type="text" class="yellow-cell hdavanzale" value="${hdavanzale}" data-row="${aperturaCounter}" oninput="RAIcalcolaApertura(${aperturaCounter})" onclick="RAIselezionaApertura(${aperturaCounter})"></td>
+            <td><input type="text" class="yellow-cell imposta" value="${imposta}" data-row="${aperturaCounter}" oninput="RAIcalcolaApertura(${aperturaCounter})" onclick="RAIselezionaApertura(${aperturaCounter})"></td>
+            <td><input type="text" class="yellow-cell sporgenza" value="${sporgenza}" data-row="${aperturaCounter}" oninput="RAIcalcolaApertura(${aperturaCounter})" onclick="RAIselezionaApertura(${aperturaCounter})"></td>
+            <td><input type="text" class="yellow-cell htot" value="0,00" readonly data-row="${aperturaCounter}"></td>
+            <td><input type="text" class="yellow-cell l2" value="0,000" readonly data-row="${aperturaCounter}"></td>
+            <td><input type="text" class="yellow-cell terzo" value="0,000" readonly data-row="${aperturaCounter}"></td>
+            <td><input type="text" class="yellow-cell intero" value="0,00" readonly data-row="${aperturaCounter}"></td>
+            <td><input type="text" class="red-cell area-finestrata" value="0,00" readonly data-row="${aperturaCounter}"></td>
+          `;
+          tbody.appendChild(newRow);
+          
+          // Calcola automaticamente i valori per la nuova riga
+          RAIcalcolaApertura(aperturaCounter);
+          
+          // Seleziona automaticamente la nuova riga
+          RAIselezionaApertura(aperturaCounter);
+        }
+      } else {
+        alert('Seleziona prima un\'apertura cliccando su una riga della tabella');
+      }
+    }
+
+    
+    })(); // Fine della protezione WordPress
+  </script>
+
+</body>
+</html>

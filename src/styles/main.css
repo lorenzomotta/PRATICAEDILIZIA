@@ -1,0 +1,591 @@
+/* Stili personalizzati per Pratica Edilizia - Bootstrap 5 */
+
+body {
+  font-family: Arial, sans-serif;
+  font-size: 14px;
+  background-color: #f5f5f5;
+}
+
+/* Pulsanti circolari icona */
+.btn-circle {
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  padding: 0;
+}
+
+.btn-circle-sm {
+  width: 22px;
+  height: 22px;
+  font-size: 12px;
+}
+
+.btn-circle-md {
+  width: 26px;
+  height: 26px;
+  font-size: 14px;
+}
+
+.btn-circle-lg {
+  width: 30px;
+  height: 30px;
+  font-size: 16px;
+}
+
+.btn-icon-green,
+.btn-icon-orange,
+.btn-icon-dark,
+.btn-icon-blue,
+.btn-icon-arrow {
+  color: #ffffff;
+  border-width: 0;
+}
+
+.btn-icon-green {
+  background-color: #28a745;
+}
+
+.btn-icon-green:hover,
+.btn-icon-green:focus {
+  background-color: #218838;
+  color: #ffffff;
+}
+
+.btn-icon-orange {
+  background-color: #ff9800;
+}
+
+.btn-icon-orange:hover,
+.btn-icon-orange:focus {
+  background-color: #fb8c00;
+  color: #ffffff;
+}
+
+.btn-icon-dark {
+  background-color: #000000;
+}
+
+.btn-icon-dark:hover,
+.btn-icon-dark:focus {
+  background-color: #1a1a1a;
+  color: #ffffff;
+}
+
+.btn-icon-blue {
+  background-color: #0d6efd;
+}
+
+.btn-icon-blue:hover,
+.btn-icon-blue:focus {
+  background-color: #0b5ed7;
+  color: #ffffff;
+}
+
+.btn-icon-arrow {
+  background: linear-gradient(135deg, #4da3ff, #0d6efd);
+}
+
+.btn-icon-arrow:hover,
+.btn-icon-arrow:focus {
+  background: linear-gradient(135deg, #3b92f5, #0a58ca);
+  color: #ffffff;
+}
+
+.btn-icon-green:focus,
+.btn-icon-orange:focus,
+.btn-icon-dark:focus,
+.btn-circle.btn-success:focus {
+  box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+}
+
+/* Vista attiva */
+.view {
+  display: none;
+}
+
+.view.active {
+  display: block;
+}
+
+.view.active.d-flex {
+  display: flex;
+}
+
+/* Lista Container */
+.lista-container {
+  padding: 0;
+}
+
+.lista-item {
+  padding: 8px 12px;
+  border-bottom: 1px solid #dee2e6;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.lista-item:last-child {
+  border-bottom: none;
+}
+
+.lista-item:hover {
+  background-color: #f8f9fa;
+}
+
+.lista-item-info {
+  flex: 1;
+}
+
+.lista-item-title {
+  font-weight: bold;
+  font-size: 16px;
+  margin-bottom: 2px;
+}
+
+.lista-item-subtitle {
+  color: #6c757d;
+  font-size: 12px;
+}
+
+.lista-item-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.lista-item-header,
+.piano-header,
+.locale-header {
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.lista-item.lista-edificio {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+  transition: background-color 0.2s ease;
+}
+
+.edificio-row-clickable {
+  cursor: pointer;
+}
+
+.gestione-edifici-layout {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.gestione-edifici-content {
+  min-width: 280px;
+  flex: 1 1 480px;
+  max-height: calc(100vh - 160px);
+  display: flex;
+}
+
+.gestione-edifici-content .card {
+  flex: 1;
+  max-height: 100%;
+  overflow-y: auto;
+}
+
+.edifici-sidebar {
+  flex: 0 0 260px;
+  max-height: calc(100vh - 160px);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.edifici-sidebar .list-group {
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.sidebar-edificio-item {
+  border: none;
+  padding: 10px 12px;
+  font-size: 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.sidebar-edificio-item span {
+  flex: 1;
+  text-align: left;
+}
+
+.sidebar-edificio-item .badge {
+  background-color: #0d6efd;
+}
+
+.sidebar-edificio-item.active {
+  background-color: #0d6efd;
+  color: #ffffff;
+}
+
+.sidebar-edificio-item.active .badge {
+  background-color: rgba(255, 255, 255, 0.35);
+}
+
+@media (max-width: 992px) {
+  .gestione-edifici-layout {
+    flex-direction: column;
+  }
+
+  .edifici-sidebar {
+    width: 100%;
+    max-height: none;
+    flex: 1 1 auto;
+  }
+
+  .edifici-sidebar .list-group {
+    max-height: 240px;
+  }
+
+  .gestione-edifici-content {
+    max-height: none;
+  }
+
+  .gestione-edifici-content .card {
+    max-height: none;
+  }
+}
+
+.piano-actions,
+.locale-actions,
+.edificio-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.edificio-actions {
+  align-items: center;
+}
+
+/* Modali personalizzate */
+.modal {
+  display: none;
+}
+
+.modal.active {
+  display: block;
+}
+
+.modal.show {
+  display: block;
+}
+
+/* Stili per tabella aperture */
+.aperture-table {
+  border-collapse: collapse;
+  font-family: Arial, sans-serif;
+  font-size: 14px;
+  margin-top: 10px;
+  width: 100%;
+  min-width: 900px;
+}
+
+.aperture-table th {
+  background-color: #f0f0f0;
+  border: 1px solid #ccc;
+  padding: 8px;
+  text-align: center;
+  font-weight: bold;
+  font-size: 14px;
+}
+
+.aperture-table td {
+  border: 1px solid #ccc;
+  padding: 4px;
+  text-align: center;
+}
+
+.aperture-table input {
+  width: 100%;
+  border: none;
+  padding: 4px;
+  text-align: center;
+  font-size: 14px;
+  box-sizing: border-box;
+  background: transparent;
+}
+
+.aperture-table input.yellow-cell {
+  background-color: #ffffcc !important;
+}
+
+.aperture-table input.red-cell {
+  background-color: white !important;
+  color: black;
+  font-weight: bold;
+}
+
+.aperture-table input:read-only {
+  background-color: #f9f9f9 !important;
+}
+
+.aperture-table th,
+.aperture-table td {
+  padding: 4px 6px;
+  vertical-align: middle;
+}
+
+.aperture-table .seleziona-apertura {
+  width: 18px;
+  height: 18px;
+}
+
+/* Superficie utile display */
+.sup-utile-display {
+  font-size: 18px;
+  font-weight: bold;
+  color: #0066cc;
+  padding: 5px 10px;
+  background-color: #f0f0f0;
+  border-radius: 4px;
+  display: inline-block;
+}
+
+/* Input gialli per calcoli */
+.input-yellow {
+  background-color: #ffffcc !important;
+}
+
+.form-control.input-yellow {
+  background-color: #ffffcc !important;
+}
+
+/* Report table */
+.report-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
+}
+
+.report-table th {
+  background-color: #0066cc;
+  color: white;
+  font-weight: bold;
+}
+
+.report-table tr:nth-child(even) {
+  background-color: #f9f9f9;
+}
+
+.report-table tr:hover {
+  background-color: #f0f0f0;
+}
+
+/* Piani nested */
+.piano-nested {
+  margin-left: 18px;
+  margin-top: 4px;
+  padding: 6px;
+  background-color: #f9f9f9;
+  border-left: 3px solid #0066cc;
+  border-radius: 4px;
+}
+
+/* Locali nested */
+.locale-nested {
+  background-color: #ffffff;
+  border-radius: 4px;
+  padding: 4px 6px;
+  transition: background-color 0.2s ease;
+}
+
+.locale-row-clickable-edifici {
+  cursor: pointer;
+}
+
+.locale-header strong {
+  display: inline-block;
+  min-width: 120px;
+}
+
+.piano-header,
+.locale-header,
+.lista-item-header {
+  gap: 6px;
+}
+
+.piano-actions,
+.locale-actions,
+.edificio-actions {
+  order: -1;
+}
+
+.edificio-info {
+  flex: 1;
+}
+
+.locale-header {
+  padding-right: 6px;
+}
+
+.locale-nested.ms-4 {
+  margin-left: 12px !important;
+}
+
+.locale-nested.mt-2 {
+  margin-top: 4px !important;
+}
+
+.locale-nested.mb-2 {
+  margin-bottom: 4px !important;
+}
+
+.locali-piano-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.locali-piano-group {
+  background-color: #f8f9fb;
+  border: 1px solid #e2e6ea;
+  border-radius: 6px;
+  padding: 6px 8px;
+}
+
+.locali-piano-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 600;
+  color: #0d6efd;
+  margin-bottom: 4px;
+  gap: 6px;
+}
+
+.locali-piano-title {
+  font-size: 15px;
+}
+
+.locali-piano-count {
+  font-size: 12px;
+  color: #6c757d;
+}
+
+.locali-piano-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.locali-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 6px 8px;
+  background-color: #ffffff;
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+  transition: background-color 0.2s ease;
+}
+
+.locale-row-clickable {
+  cursor: pointer;
+}
+
+.locali-item-title {
+  font-weight: 600;
+  font-size: 15px;
+  margin-bottom: 2px;
+}
+
+.locali-item-subtitle {
+  font-size: 12px;
+  color: #6c757d;
+}
+
+.locali-item-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.lista-edificio.highlight-edificio,
+.lista-edificio.highlight-edificio .piano-nested,
+.lista-edificio.highlight-edificio .locali-item {
+  transition: box-shadow 0.3s ease;
+}
+
+.lista-edificio.highlight-edificio {
+  box-shadow: 0 0 0 2px rgba(13, 110, 253, 0.4);
+  border-radius: 6px;
+  background-color: #eef5ff;
+}
+
+/* Navbar buttons active state */
+.navbar .btn.active {
+  background-color: white;
+  color: #0066cc;
+}
+
+.navbar .btn-outline-light.active {
+  background-color: white;
+  color: #0066cc;
+  border-color: white;
+}
+
+.form-riga-top .form-label {
+  font-size: 13px;
+  margin-bottom: 4px;
+}
+
+.form-riga-top .form-control,
+.form-riga-top .form-select {
+  font-size: 13px;
+  padding: 6px 8px;
+}
+
+@media (max-width: 992px) {
+  .form-riga-top .form-control,
+  .form-riga-top .form-select {
+    font-size: 14px;
+  }
+}
+
+.form-riga-superficie .form-label {
+  font-size: 13px;
+  margin-bottom: 4px;
+}
+
+.form-riga-superficie .form-control {
+  font-size: 13px;
+  padding: 6px 8px;
+}
+
+.form-riga-superficie .form-control.text-center {
+  text-align: center;
+}
+
+.form-riga-superficie .sup-utile-display {
+  font-size: 18px;
+  padding: 4px 14px;
+}
+
+@media (max-width: 992px) {
+  .form-riga-superficie .form-control {
+    font-size: 14px;
+  }
+
+  .form-riga-superficie .sup-utile-display {
+    font-size: 18px;
+    padding: 4px 12px;
+  }
+}
+
+.aperture-section .btn.btn-icon-green {
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
