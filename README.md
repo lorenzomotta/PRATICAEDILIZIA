@@ -1,6 +1,6 @@
 # Pratica Edilizia - App Tauri
 
-Applicazione desktop per la gestione di edifici, piani e locali con calcolo dei rapporti di superficie.
+Applicazione desktop per la gestione di edifici, piani e locali con calcolo delle superfici utili e rapporti aerolluminanti.
 
 ## Struttura del Progetto
 
@@ -36,7 +36,7 @@ pratica-edilizia/
 
 ### 3. Gestione Locali
 - Creazione, modifica ed eliminazione di locali
-- Ogni locale appartiene a un piano
+- Ogni locale appartiene a un piano ed ad un edificio
 - Ogni locale ha:
   - Nome
   - Tipologia di superficie (Residenziale, Commerciale, Ufficio, Magazzino, Altro)
@@ -95,8 +95,5 @@ npm run build
 
 ## Prossimi Sviluppi
 
-- Esportazione report in PDF/Excel
-- Backup e ripristino dati
-- Gestione progetti multipli
-- Affinamento tipologie superficie con valori predefiniti
+- 
 
