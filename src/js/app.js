@@ -2745,7 +2745,7 @@ function generaCostoCostruzione() {
   Object.keys(localiPerUnitaETipologia).forEach(nomeEdificio => {
     const tipologieUnita = localiPerUnitaETipologia[nomeEdificio];
     
-    // Calcola la superficie totale di ABITAZIONE + ACCESSORIO ABITAZIONE
+    // Calcola la superficie di SOLO ABITAZIONE (senza ACCESSORIO ABITAZIONE)
     let superficieAbitazione = 0;
     let superficieAccessorio = 0;
     
@@ -2756,23 +2756,21 @@ function generaCostoCostruzione() {
       superficieAccessorio = tipologieUnita['ACCESSORIO ABITAZIONE'].somma;
     }
     
-    const superficieTotaleAbitazione = superficieAbitazione + superficieAccessorio;
-    
-    // Classifica in base alla classe di superficie
-    if (superficieTotaleAbitazione > 0 && superficieTotaleAbitazione < 95) {
-      totaliColonne['<95'] += superficieTotaleAbitazione;
+    // Classifica in base alla classe di superficie usando SOLO ABITAZIONE (non ACCESSORIO)
+    if (superficieAbitazione > 0 && superficieAbitazione < 95) {
+      totaliColonne['<95'] += superficieAbitazione;
       conteggiColonne['<95']++;
-    } else if (superficieTotaleAbitazione >= 95 && superficieTotaleAbitazione < 110) {
-      totaliColonne['95-110'] += superficieTotaleAbitazione;
+    } else if (superficieAbitazione >= 95 && superficieAbitazione < 110) {
+      totaliColonne['95-110'] += superficieAbitazione;
       conteggiColonne['95-110']++;
-    } else if (superficieTotaleAbitazione >= 110 && superficieTotaleAbitazione < 130) {
-      totaliColonne['110-130'] += superficieTotaleAbitazione;
+    } else if (superficieAbitazione >= 110 && superficieAbitazione < 130) {
+      totaliColonne['110-130'] += superficieAbitazione;
       conteggiColonne['110-130']++;
-    } else if (superficieTotaleAbitazione >= 130 && superficieTotaleAbitazione < 160) {
-      totaliColonne['130-160'] += superficieTotaleAbitazione;
+    } else if (superficieAbitazione >= 130 && superficieAbitazione < 160) {
+      totaliColonne['130-160'] += superficieAbitazione;
       conteggiColonne['130-160']++;
-    } else if (superficieTotaleAbitazione >= 160) {
-      totaliColonne['>160'] += superficieTotaleAbitazione;
+    } else if (superficieAbitazione >= 160) {
+      totaliColonne['>160'] += superficieAbitazione;
       conteggiColonne['>160']++;
     }
     
@@ -5463,29 +5461,27 @@ th { background-color: #cfe2ff; font-weight: bold; }
         superficieAccessorio = tipologieUnita['ACCESSORIO ABITAZIONE'].somma;
       }
       
-      const superficieTotaleAbitazione = superficieAbitazione + superficieAccessorio;
-      
-      // Classifica in base alla classe di superficie
+      // Classifica in base alla classe di superficie usando SOLO ABITAZIONE (non ACCESSORIO)
       let classeSuperficie = '';
-      if (superficieTotaleAbitazione > 0 && superficieTotaleAbitazione < 95) {
+      if (superficieAbitazione > 0 && superficieAbitazione < 95) {
         classeSuperficie = '<95';
-        totaliColonne['<95'] += superficieTotaleAbitazione;
+        totaliColonne['<95'] += superficieAbitazione;
         conteggiColonne['<95']++;
-      } else if (superficieTotaleAbitazione >= 95 && superficieTotaleAbitazione < 110) {
+      } else if (superficieAbitazione >= 95 && superficieAbitazione < 110) {
         classeSuperficie = '95-110';
-        totaliColonne['95-110'] += superficieTotaleAbitazione;
+        totaliColonne['95-110'] += superficieAbitazione;
         conteggiColonne['95-110']++;
-      } else if (superficieTotaleAbitazione >= 110 && superficieTotaleAbitazione < 130) {
+      } else if (superficieAbitazione >= 110 && superficieAbitazione < 130) {
         classeSuperficie = '110-130';
-        totaliColonne['110-130'] += superficieTotaleAbitazione;
+        totaliColonne['110-130'] += superficieAbitazione;
         conteggiColonne['110-130']++;
-      } else if (superficieTotaleAbitazione >= 130 && superficieTotaleAbitazione < 160) {
+      } else if (superficieAbitazione >= 130 && superficieAbitazione < 160) {
         classeSuperficie = '130-160';
-        totaliColonne['130-160'] += superficieTotaleAbitazione;
+        totaliColonne['130-160'] += superficieAbitazione;
         conteggiColonne['130-160']++;
-      } else if (superficieTotaleAbitazione >= 160) {
+      } else if (superficieAbitazione >= 160) {
         classeSuperficie = '>160';
-        totaliColonne['>160'] += superficieTotaleAbitazione;
+        totaliColonne['>160'] += superficieAbitazione;
         conteggiColonne['>160']++;
       }
       
@@ -5520,7 +5516,7 @@ th { background-color: #cfe2ff; font-weight: bold; }
       
       datiClassiSuperficie[nomeEdificio] = {
         classeSuperficie: classeSuperficie,
-        superficieTotale: superficieTotaleAbitazione,
+        superficieTotale: superficieAbitazione, // Solo ABITAZIONE, non ACCESSORIO
         totaliTipologie: totaliTipologie
       };
     });
