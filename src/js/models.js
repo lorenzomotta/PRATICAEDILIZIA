@@ -310,6 +310,44 @@ export class DataModel {
     return nuovoLocale;
   }
 
+  // Trasferisci un locale da un edificio/piano a un altro
+  trasferisciLocale(edificioIdOrigine, pianoIdOrigine, localeId, nuovoEdificioId, nuovoPianoId) {
+    // Ottieni il locale originale
+    const locale = this.getLocale(edificioIdOrigine, pianoIdOrigine, localeId);
+    if (!locale) {
+      return null;
+    }
+
+    // Verifica che il nuovo edificio e piano esistano
+    const nuovoEdificio = this.getEdificio(nuovoEdificioId);
+    const nuovoPiano = this.getPiano(nuovoEdificioId, nuovoPianoId);
+    
+    if (!nuovoEdificio || !nuovoPiano) {
+      return null;
+    }
+
+    // Rimuovi il locale dal piano originale
+    const pianoOrigine = this.getPiano(edificioIdOrigine, pianoIdOrigine);
+    if (pianoOrigine) {
+      const index = pianoOrigine.locali.findIndex(l => l.id === localeId);
+      if (index !== -1) {
+        pianoOrigine.locali.splice(index, 1);
+      }
+    }
+
+    // Aggiorna i riferimenti del locale
+    locale.edificioId = nuovoEdificioId;
+    locale.edificioNome = nuovoEdificio.nome;
+    locale.pianoId = nuovoPianoId;
+    locale.pianoNome = nuovoPiano.nome;
+
+    // Aggiungi il locale al nuovo piano
+    nuovoPiano.locali.push(locale);
+
+    this.saveToStorage();
+    return locale;
+  }
+
   resetData() {
     this.edifici = [];
     this.costoCostruzione = {

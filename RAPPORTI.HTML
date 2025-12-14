@@ -388,6 +388,7 @@
           <th style="width: 45px;">UNTERZO</th>
           <th style="width: 45px;">Intero</th>
           <th style="width: 70px;">AREA FINESTRATA</th>
+          <th style="width: 50px;">N°AGG.</th>
         </tr>
       </thead>
       <tbody id="aperture-tbody">
@@ -403,6 +404,7 @@
           <td><input type="text" class="yellow-cell terzo" value="0,000" readonly data-row="1"></td>
           <td><input type="text" class="yellow-cell intero" value="0,00" readonly data-row="1"></td>
           <td><input type="text" class="red-cell area-finestrata" value="0,00" readonly data-row="1"></td>
+          <td><input type="text" class="yellow-cell nagg" value="" readonly data-row="1" style="text-align: center;"></td>
         </tr>
       </tbody>
     </table>
@@ -457,6 +459,10 @@
       window.RAIparseItalianNumber = RAIparseItalianNumber;
       window.RAIformatItalianNumber = RAIformatItalianNumber;
       window.RAIcalcolaApertura = RAIcalcolaApertura;
+      window.RAIaggiornaNumerazioneAperture = RAIaggiornaNumerazioneAperture;
+      
+      // Aggiorna la numerazione N°AGG all'avvio
+      RAIaggiornaNumerazioneAperture();
     });
 
     // Funzione per aggiornare Sup. Utile in tempo reale
@@ -608,6 +614,68 @@
 
       // Aggiorna il totale
       RAIcalcolaTotaleAreaFinestrata();
+      
+      // Aggiorna la numerazione N°AGG per tutte le aperture
+      RAIaggiornaNumerazioneAperture();
+    }
+    
+    // Funzione per aggiornare la numerazione N°AGG delle aperture
+    function RAIaggiornaNumerazioneAperture() {
+      const rows = document.querySelectorAll('#aperture-tbody tr');
+      const aperture = [];
+      
+      // Raccogli tutti i dati delle aperture
+      rows.forEach((row, index) => {
+        const altezza = RAIparseItalianNumber(row.querySelector('.altezza').value) || 0;
+        const hdavanzale = RAIparseItalianNumber(row.querySelector('.hdavanzale').value) || 0;
+        const sporgenza = RAIparseItalianNumber(row.querySelector('.sporgenza').value) || 0;
+        const imposta = RAIparseItalianNumber(row.querySelector('.imposta').value) || 0.20;
+        
+        aperture.push({
+          row: row,
+          index: index,
+          altezza: altezza,
+          hdavanzale: hdavanzale,
+          sporgenza: sporgenza,
+          imposta: imposta
+        });
+      });
+      
+      // Normalizza i valori per il confronto (arrotonda a 2 decimali)
+      function normalizzaValore(valore) {
+        return Number(valore.toFixed(2));
+      }
+      
+      // Raggruppa le aperture per valori identici
+      const gruppiPerColoreNumerazione = new Map();
+      let numeroProgressivo = 1;
+      
+      // Ordina le aperture per indice (ordine di apparizione) e raggruppa per valori identici
+      aperture.forEach((apertura) => {
+        const altezzaNorm = normalizzaValore(apertura.altezza);
+        const hdavanzaleNorm = normalizzaValore(apertura.hdavanzale);
+        const sporgenzaNorm = normalizzaValore(apertura.sporgenza);
+        const impostaNorm = normalizzaValore(apertura.imposta);
+        
+        const chiaveGruppo = `${altezzaNorm}_${hdavanzaleNorm}_${sporgenzaNorm}_${impostaNorm}`;
+        
+        // Se è il primo elemento di questo gruppo, assegna un nuovo numero
+        if (!gruppiPerColoreNumerazione.has(chiaveGruppo)) {
+          gruppiPerColoreNumerazione.set(chiaveGruppo, numeroProgressivo);
+          numeroProgressivo++;
+        }
+        
+        // Assegna il numero progressivo all'apertura
+        apertura.naggNumerato = gruppiPerColoreNumerazione.get(chiaveGruppo);
+      });
+      
+      // Applica i numeri alle righe
+      aperture.forEach((apertura) => {
+        const naggInput = apertura.row.querySelector('.nagg');
+        if (naggInput) {
+          naggInput.value = apertura.naggNumerato || '';
+        }
+      });
     }
 
     // Funzione per calcolare il totale area finestrata
@@ -644,11 +712,15 @@
         <td><input type="text" class="yellow-cell terzo" value="0,000" readonly data-row="${aperturaCounter}"></td>
         <td><input type="text" class="yellow-cell intero" value="0,00" readonly data-row="${aperturaCounter}"></td>
         <td><input type="text" class="red-cell area-finestrata" value="0,00" readonly data-row="${aperturaCounter}"></td>
+        <td><input type="text" class="yellow-cell nagg" value="" readonly data-row="${aperturaCounter}" style="text-align: center;"></td>
       `;
       tbody.appendChild(newRow);
       
       // Calcola automaticamente i valori per la nuova riga
       RAIcalcolaApertura(aperturaCounter);
+      
+      // Aggiorna la numerazione N°AGG
+      RAIaggiornaNumerazioneAperture();
     }
 
     // Funzione per eliminare una riga
@@ -659,6 +731,7 @@
           row.remove();
           RAIrinumeraAperture();
           RAIcalcolaTotaleAreaFinestrata();
+          RAIaggiornaNumerazioneAperture();
         }
       }
     }
@@ -693,6 +766,7 @@
           riga.remove();
           RAIrinumeraAperture();
           RAIcalcolaTotaleAreaFinestrata();
+          RAIaggiornaNumerazioneAperture();
           aperturaSelezionataLocale[1] = null;
           aperturaSelezionata = null;
         }
@@ -735,11 +809,15 @@
             <td><input type="text" class="yellow-cell terzo" value="0,000" readonly data-row="${aperturaCounter}"></td>
             <td><input type="text" class="yellow-cell intero" value="0,00" readonly data-row="${aperturaCounter}"></td>
             <td><input type="text" class="red-cell area-finestrata" value="0,00" readonly data-row="${aperturaCounter}"></td>
+            <td><input type="text" class="yellow-cell nagg" value="" readonly data-row="${aperturaCounter}" style="text-align: center;"></td>
           `;
           tbody.appendChild(newRow);
           
           // Calcola automaticamente i valori per la nuova riga
           RAIcalcolaApertura(aperturaCounter);
+          
+          // Aggiorna la numerazione N°AGG
+          RAIaggiornaNumerazioneAperture();
           
           // Seleziona automaticamente la nuova riga
           RAIselezionaApertura(aperturaCounter);

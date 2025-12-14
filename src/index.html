@@ -7,6 +7,8 @@
   <!-- Bootstrap CSS -->
   <link href="vendor/bootstrap/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="styles/main.css">
+  <link rel="stylesheet" href="styles/aggetti.css">
+  <link rel="stylesheet" href="styles/schema-aggetto.css">
 </head>
 <body>
   <div id="app" class="d-flex flex-column vh-100">
@@ -14,13 +16,35 @@
     <nav class="navbar navbar-dark bg-primary shadow-sm">
       <div class="container-fluid flex-wrap gap-3">
         <div class="d-flex align-items-center gap-2 flex-wrap">
-          <span class="navbar-brand mb-0 h1">Pratica Edilizia</span>
-          <button id="btn-nuovo-calcolo" class="btn btn-outline-light btn-sm">Nuovo</button>
-          <button id="btn-import-json" class="btn btn-outline-light btn-sm">Importa JSON</button>
-          <button id="btn-export-json" class="btn btn-outline-light btn-sm">Esporta JSON</button>
-          <button id="btn-export-excel" class="btn btn-success btn-sm">Esporta Excel</button>
-          <input type="file" id="input-import-json" accept="application/json" class="d-none" />
+          <span class="navbar-brand mb-0 h1">
+            Pratica Edilizia 
+            <span id="app-version" class="small">1.1.0</span>
+            <span id="file-path-display" class="small ms-2 text-light"></span>
+          </span>
+          
+          <!-- Menu File -->
+          <div class="dropdown">
+            <button class="btn btn-outline-light btn-sm dropdown-toggle" type="button" id="dropdownMenuFile" data-bs-toggle="dropdown" aria-expanded="false">
+              File
+            </button>
+            <ul class="dropdown-menu dropdown-menu-dark" aria-labelledby="dropdownMenuFile">
+              <li><a class="dropdown-item" href="#" id="menu-nuovo-calcolo">Nuovo</a></li>
+              <li><hr class="dropdown-divider"></li>
+              <li><a class="dropdown-item" href="#" id="menu-salva">Salva</a></li>
+              <li><a class="dropdown-item" href="#" id="menu-salva-con-nome">Salva con Nome</a></li>
+              <li><hr class="dropdown-divider"></li>
+              <li><a class="dropdown-item" href="#" id="menu-importa-pratica">Importa Pratica</a></li>
+              <li><a class="dropdown-item" href="#" id="menu-import-json">Importa JSON</a></li>
+              <li><hr class="dropdown-divider"></li>
+              <li><a class="dropdown-item" href="#" id="menu-export-json">Esporta JSON</a></li>
+              <li><a class="dropdown-item" href="#" id="menu-export-excel">Esporta Excel</a></li>
+            </ul>
+          </div>
+          
+          <input type="file" id="input-import-json" accept=".json,.lor" class="d-none" />
+          <input type="file" id="input-import-lor" accept=".lor" class="d-none" />
         </div>
+        
         <div class="d-flex gap-2 align-items-center flex-wrap">
           <button id="btn-edifici" class="btn btn-light btn-sm active">Edifici</button>
           <button id="btn-locali" class="btn btn-outline-light btn-sm">Locali</button>
@@ -106,8 +130,17 @@
             </select>
           </div>
           <button id="btn-genera-report" class="btn btn-primary">Genera Report</button>
+          <button id="btn-aggetti" class="btn btn-info">AGGETTI</button>
         </div>
         <div id="report-content" class="card shadow-sm"></div>
+      </div>
+
+      <!-- Vista Aggetti -->
+      <div id="view-aggetti" class="view">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+          <h2 class="text-primary">Aggetti - Aperture con Sporgenza > 1,20</h2>
+        </div>
+        <div id="aggetti-content" class="card shadow-sm"></div>
       </div>
 
       <!-- Vista Riepilogo Superfici -->
@@ -226,6 +259,66 @@
     </div>
   </div>
 
+  <!-- Modale Trasferisci Locale -->
+  <div id="modal-trasferisci-locale" class="modal fade" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Trasferisci Locale</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <p>Seleziona il nuovo edificio e piano per questo locale:</p>
+          <div class="mb-3">
+            <label for="trasferisci-edificio" class="form-label">Edificio</label>
+            <select id="trasferisci-edificio" class="form-select" required>
+              <option value="">Seleziona Edificio</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label for="trasferisci-piano" class="form-label">Piano</label>
+            <select id="trasferisci-piano" class="form-select" required disabled>
+              <option value="">Seleziona prima un edificio</option>
+            </select>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+          <button type="button" id="btn-conferma-trasferimento" class="btn btn-primary">Conferma Trasferimento</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modale Schema Aggetto -->
+  <div id="modal-schema-aggetto" class="modal fade" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Schema Aggetto N. <input type="text" id="schema-aggetto-numero" style="width: 60px; display: inline-block; text-align: center;" class="form-control form-control-sm d-inline"></h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div id="schema-aggetto-container">
+            <!-- Lo schema verrà generato qui -->
+          </div>
+          <div class="mt-3">
+            <div class="row">
+              <div class="col-md-4"><strong>EDIFICIO:</strong> <span id="schema-edificio"></span></div>
+              <div class="col-md-4"><strong>PIANO:</strong> <span id="schema-piano"></span></div>
+              <div class="col-md-4"><strong>LOCALE:</strong> <span id="schema-locale"></span></div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" id="btn-esporta-dxf-schema-aggetto" class="btn btn-primary">ESPORTA DXF</button>
+          <button type="button" id="btn-stampa-schema-aggetto" class="btn btn-success">STAMPA PDF</button>
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Chiudi</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 2000;">
     <div id="toast-info" class="toast align-items-center text-bg-primary border-0" role="alert" aria-live="assertive" aria-atomic="true">
       <div class="d-flex">
@@ -256,6 +349,8 @@
   <!-- Bootstrap JS -->
   <script src="vendor/bootstrap/bootstrap.bundle.min.js"></script>
   <script type="module" src="js/app.js"></script>
+  <script type="module" src="js/aggetti.js"></script>
+  <script type="module" src="js/schema-aggetto.js"></script>
 </body>
 </html>
 

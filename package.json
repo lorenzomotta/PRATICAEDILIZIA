@@ -1,6 +1,6 @@
 {
   "name": "pratica-edilizia",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Applicazione per la gestione di edifici, piani e locali con calcolo rapporti di superficie",
   "type": "module",
   "scripts": {

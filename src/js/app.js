@@ -16,32 +16,49 @@ let tauriFs = null;
 let tauriWindow = null;
 let tauriUpdater = null;
 
-async function waitForTauri(tries = 20, delay = 50) {
+async function waitForTauri(tries = 40, delay = 100) {
   for (let i = 0; i < tries; i++) {
     if (window.__TAURI__?.dialog && window.__TAURI__?.fs) {
       return true;
     }
     await new Promise((resolve) => setTimeout(resolve, delay));
   }
-  return !!window.__TAURI__;
+  // Controlla ancora una volta prima di ritornare
+  return !!(window.__TAURI__?.dialog && window.__TAURI__?.fs);
 }
 
 async function ensureTauriApis() {
-  if (tauriDialog && tauriFs) return;
+  // Se entrambi sono già inizializzati e Tauri è disponibile, verifica comunque che siano validi
+  if (tauriDialog && tauriFs && window.__TAURI__) {
+    // Verifica che siano ancora validi
+    if (typeof tauriDialog.save === 'function' && typeof tauriFs.writeTextFile === 'function') {
+      return; // Tutto ok, non serve reinizializzare
+    }
+    // Se non sono validi, continua con la reinizializzazione
+  }
 
   const available = await waitForTauri();
   if (!available) {
-    tauriDialog = window.__TAURI__?.dialog || null;
-    tauriFs = window.__TAURI__?.fs || null;
-    tauriWindow = window.__TAURI__?.window?.appWindow || null;
-    tauriUpdater = window.__TAURI__?.updater || null;
+    // Tauri non disponibile, imposta a null
+    tauriDialog = null;
+    tauriFs = null;
+    tauriWindow = null;
+    tauriUpdater = null;
     return;
   }
 
-  tauriDialog = window.__TAURI__.dialog;
-  tauriFs = window.__TAURI__.fs;
-  tauriWindow = window.__TAURI__?.window?.appWindow || tauriWindow;
-  tauriUpdater = window.__TAURI__?.updater || null;
+  // Tauri disponibile, inizializza le API (sempre, anche se già inizializzate, per sicurezza)
+  if (window.__TAURI__) {
+    tauriDialog = window.__TAURI__.dialog || null;
+    tauriFs = window.__TAURI__.fs || null;
+    tauriWindow = window.__TAURI__?.window?.appWindow || null;
+    tauriUpdater = window.__TAURI__?.updater || null;
+  } else {
+    tauriDialog = null;
+    tauriFs = null;
+    tauriWindow = null;
+    tauriUpdater = null;
+  }
 }
 
 // Inizializza il modello dati (istanza globale condivisa)
@@ -57,6 +74,7 @@ let autoSaveTimeout = null;
 let toastInfo = null;
 let toastSuccess = null;
 let toastError = null;
+let currentSaveFilePath = null; // Traccia il file corrente salvato
 let toastInfoBody = null;
 let toastSuccessBody = null;
 let toastErrorBody = null;
@@ -165,8 +183,88 @@ function showErrorToast(message) {
   toastError.show();
 }
 
+// Funzione per aggiornare le informazioni del file corrente nel titolo della finestra
+async function aggiornaInfoFile() {
+  // Assicurati che Tauri sia inizializzato
+  await ensureTauriApis();
+  
+  const filePath = currentSaveFilePath || localStorage.getItem('currentSaveFilePath');
+  
+  let titleText = 'Pratica Edilizia 1.1.0';
+  
+  if (filePath) {
+    // Aggiungi il percorso del file al titolo
+    titleText = `Pratica Edilizia 1.1.0 - ${filePath}`;
+  }
+  
+  // Aggiorna il titolo della pagina (funziona in browser)
+  document.title = titleText;
+  
+  // Aggiorna anche l'elemento nella navbar HTML
+  const filePathDisplay = document.getElementById('file-path-display');
+  if (filePathDisplay) {
+    if (filePath) {
+      // Estrai solo il nome del file dal percorso completo
+      // Gestisce sia percorsi Windows (\) che Unix (/)
+      const fileName = filePath.split(/[/\\]/).pop() || filePath;
+      
+      // Mostra solo il nome del file nella navbar
+      filePathDisplay.textContent = `- ${fileName}`;
+      filePathDisplay.style.display = 'inline';
+      
+      // Verifica se abbiamo un percorso completo (contiene separatori di percorso)
+      // Se contiene solo il nome del file, non mostrare il tooltip
+      const hasFullPath = filePath.includes('/') || filePath.includes('\\');
+      
+      if (hasFullPath && filePath !== fileName) {
+        // Aggiungi il percorso completo come tooltip solo se è diverso dal nome del file
+        filePathDisplay.setAttribute('title', filePath);
+        filePathDisplay.style.cursor = 'help'; // Cambia il cursore per indicare che c'è un tooltip
+      } else {
+        // Se abbiamo solo il nome del file, rimuovi il tooltip
+        filePathDisplay.removeAttribute('title');
+        filePathDisplay.style.cursor = 'default';
+      }
+    } else {
+      // Nascondi se non c'è un file salvato
+      filePathDisplay.textContent = '';
+      filePathDisplay.style.display = 'none';
+      filePathDisplay.removeAttribute('title');
+    }
+  }
+  
+  // Aggiorna anche il titolo della finestra Tauri se disponibile
+  // Usa anche window.__TAURI__ come fallback
+  const windowApi = tauriWindow || window.__TAURI__?.window?.appWindow;
+  if (windowApi && typeof windowApi.setTitle === 'function') {
+    try {
+      await windowApi.setTitle(titleText);
+    } catch (error) {
+      console.warn('Errore durante l\'aggiornamento del titolo Tauri:', error);
+    }
+  } else if (window.__TAURI__ && window.__TAURI__.window) {
+    // Prova anche con window.__TAURI__.window direttamente
+    try {
+      const appWindow = window.__TAURI__.window.appWindow;
+      if (appWindow && typeof appWindow.setTitle === 'function') {
+        await appWindow.setTitle(titleText);
+      }
+    } catch (error) {
+      console.warn('Errore durante l\'aggiornamento del titolo Tauri (fallback):', error);
+    }
+  }
+}
+
 async function initializePersistence() {
   try {
+    // Carica il percorso del file corrente salvato
+    const savedPath = localStorage.getItem('currentSaveFilePath');
+    if (savedPath) {
+      currentSaveFilePath = savedPath;
+    }
+    // Aggiorna le informazioni del file nel titolo della finestra
+    await aggiornaInfoFile();
+    
     // Setup salvataggio automatico (non richiede Tauri per localStorage)
     const originalSaveToStorage = dataModel.saveToStorage.bind(dataModel);
     dataModel.saveToStorage = function () {
@@ -241,6 +339,253 @@ async function autoSaveDataModel(showFeedback = false) {
     console.error('Errore durante il salvataggio automatico su file', error);
     if (showFeedback) showErrorToast('Errore durante il salvataggio.');
   }
+}
+
+// Funzione per salvare i dati con estensione .lor
+async function salvaFileLor(filePath = null, showFeedback = true) {
+  // Assicurati che Tauri sia inizializzato (importante quando filePath è già fornito)
+  await ensureTauriApis();
+  
+  // Prepara i dati da salvare (sempre, indipendentemente dal metodo)
+  const dataToSave = {
+    edifici: dataModel.edifici || [],
+    costoCostruzione: dataModel.costoCostruzione || {
+      costoMq: '0,00',
+      oneriPrimari: '0,00',
+      oneriSecondari: '0,00',
+      smaltimentoRifiuti: '0,00',
+      volume: '0,00',
+      inc3: '0',
+      percentualeContributo: null
+    }
+  };
+  const contents = JSON.stringify(dataToSave, null, 2);
+
+  // Se non è stato fornito un percorso, chiedilo all'utente
+  if (!filePath) {
+    // Controlla Tauri in modo SINCRONO prima di fare operazioni asincrone
+    // Questo è importante per mantenere la "user gesture chain" per showSaveFilePicker
+    const dialog = tauriDialog || window.__TAURI__?.dialog;
+    const fs = tauriFs || window.__TAURI__?.fs;
+    
+    // Debug: verifica cosa abbiamo disponibile
+    const tauriCheck = {
+      tauriDialog: !!tauriDialog,
+      windowDialog: !!window.__TAURI__?.dialog,
+      tauriFs: !!tauriFs,
+      windowFs: !!window.__TAURI__?.fs,
+      dialogSave: !!(dialog && typeof dialog.save === 'function'),
+      fsWrite: !!(fs && typeof fs.writeTextFile === 'function')
+    };
+    console.log('Tauri check:', tauriCheck);
+    
+    // Se Tauri NON è disponibile, chiama IMMEDIATAMENTE showSaveFilePicker
+    // senza delay o operazioni asincrone (per mantenere la user gesture chain)
+    if (!dialog || typeof dialog.save !== 'function' || !fs || typeof fs.writeTextFile !== 'function') {
+      // Tauri non disponibile, usa il fallback del browser IMMEDIATAMENTE
+      const missingParts = [];
+      if (!dialog || typeof dialog.save !== 'function') missingParts.push('dialog.save');
+      if (!fs || typeof fs.writeTextFile !== 'function') missingParts.push('fs.writeTextFile');
+      console.warn('Tauri non disponibile, uso fallback browser. Mancano:', missingParts);
+      
+      if (showFeedback) showInfoToast('Apertura dialogo salvataggio...');
+      
+      // Chiama showSaveFilePicker IMMEDIATAMENTE senza delay
+      try {
+        if ('showSaveFilePicker' in window) {
+          try {
+            const fileHandle = await window.showSaveFilePicker({
+              suggestedName: 'pratica-edilizia.lor',
+              types: [{
+                description: 'File Pratica Edilizia',
+                accept: {
+                  'application/json': ['.lor']
+                }
+              }]
+            });
+            
+            const writable = await fileHandle.createWritable();
+            await writable.write(contents);
+            await writable.close();
+            
+            // Salva il percorso del file (nome del file per riferimento)
+            // Nota: con showSaveFilePicker non abbiamo il percorso completo, solo il nome
+            const fileName = fileHandle.name || 'pratica-edilizia.lor';
+            currentSaveFilePath = fileName;
+            localStorage.setItem('currentSaveFilePath', fileName);
+            
+            // Aggiorna le informazioni del file nel titolo della finestra
+            await aggiornaInfoFile();
+            
+            toastInfo?.hide();
+            showSuccessToast('File salvato con successo.');
+            return null;
+          } catch (pickerError) {
+            // Se l'utente annulla il dialogo, showSaveFilePicker lancia un errore AbortError
+            if (pickerError.name === 'AbortError') {
+              toastInfo?.hide();
+              return null;
+            }
+            // Se c'è un altro errore con l'API, usa il fallback del download
+            throw pickerError;
+          }
+        }
+        
+        // Se l'API non è disponibile, usa il metodo del download
+        const blob = new Blob([contents], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        
+        // Chiedi all'utente il nome del file tramite prompt
+        const defaultName = 'pratica-edilizia.lor';
+        const fileName = prompt('Inserisci il nome del file (verrà salvato nella cartella Download):', defaultName);
+        
+        if (fileName && fileName.trim()) {
+          const finalFileName = fileName.trim().endsWith('.lor') ? fileName.trim() : fileName.trim() + '.lor';
+          link.download = finalFileName;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          URL.revokeObjectURL(url);
+          toastInfo?.hide();
+          showSuccessToast(`File "${finalFileName}" salvato nella cartella Download.`);
+          return null;
+        } else {
+          URL.revokeObjectURL(url);
+          toastInfo?.hide();
+          return null;
+        }
+      } catch (fallbackError) {
+        console.error('Errore durante il fallback browser:', fallbackError);
+        toastInfo?.hide();
+        const fallbackErrorMsg = fallbackError.message || fallbackError.toString();
+        showErrorToast(`Errore durante il salvataggio: ${fallbackErrorMsg}`);
+        return null;
+      }
+    }
+    
+    // Tauri è disponibile, procedi con le operazioni asincrone
+    if (showFeedback) showInfoToast('Apertura dialogo salvataggio...');
+    
+    try {
+      // Usa il dialogo di Tauri (Tauri gestisce correttamente la user gesture chain)
+      const dialog = tauriDialog || window.__TAURI__?.dialog;
+      const selectedPath = await dialog.save({
+        defaultPath: 'pratica-edilizia.lor',
+        filters: [{ name: 'File Pratica Edilizia', extensions: ['lor'] }]
+      });
+      
+      if (!selectedPath) {
+        toastInfo?.hide();
+        return null;
+      }
+      
+      filePath = selectedPath;
+      
+      if (showFeedback) showInfoToast('Salvataggio in corso...');
+    } catch (dialogError) {
+      console.error('Errore durante l\'apertura del dialogo Tauri:', dialogError);
+      toastInfo?.hide();
+      showErrorToast(`Errore dialogo Tauri: ${dialogError.message || dialogError}`);
+      return null;
+    }
+  }
+
+  // Salva il file usando Tauri (stesso metodo di handleExportJson)
+  if (showFeedback) showInfoToast('Salvataggio in corso...');
+  
+  try {
+    // Forza un nuovo controllo di Tauri prima di salvare (importante quando filePath è già fornito)
+    await ensureTauriApis();
+    
+    // Controlla se Tauri è disponibile PRIMA di tentare di salvare
+    // Usa direttamente window.__TAURI__ come fallback se le variabili globali non sono inizializzate
+    const fs = tauriFs || window.__TAURI__?.fs;
+    
+    // Se Tauri NON è disponibile e abbiamo un filePath, non possiamo salvare direttamente
+    if (!fs || typeof fs.writeTextFile !== 'function') {
+      const errorMsg = 'Tauri FS non disponibile per il salvataggio';
+      console.error(errorMsg, { 
+        tauriFs: !!tauriFs, 
+        windowFs: !!window.__TAURI__?.fs,
+        windowTauri: !!window.__TAURI__,
+        tauriDialog: !!tauriDialog,
+        filePath: filePath
+      });
+      toastInfo?.hide();
+      
+      // Se abbiamo un filePath salvato ma Tauri non è disponibile,
+      // suggeriamo di usare "Salva con Nome" che gestisce il fallback browser
+      showErrorToast('Tauri FS non disponibile. Usa "Salva con Nome" per salvare il file.');
+      return null;
+    }
+    
+    // Tauri è disponibile, procedi con il salvataggio
+    await fs.writeTextFile(filePath, contents);
+    
+    // Salva il percorso del file corrente
+    currentSaveFilePath = filePath;
+    
+    // Salva anche nel localStorage per riferimento
+    localStorage.setItem('currentSaveFilePath', filePath);
+    
+    // Aggiorna le informazioni del file nel titolo della finestra
+    await aggiornaInfoFile();
+    
+    toastInfo?.hide();
+    showSuccessToast('File salvato con successo.');
+    
+    return filePath;
+  } catch (error) {
+    console.error('Errore durante il salvataggio del file:', error);
+    toastInfo?.hide();
+    const errorMsg = error.message || error.toString();
+    showErrorToast(`Errore durante il salvataggio: ${errorMsg}`);
+    return null;
+  }
+}
+
+// Funzione per salvare (sempre apre il dialogo per selezionare destinazione e nome)
+async function salvaFile() {
+  // Controlla se c'è un file corrente salvato
+  const savedPath = currentSaveFilePath || localStorage.getItem('currentSaveFilePath');
+  
+  // Se non c'è un percorso salvato, usa direttamente "Salva con Nome" 
+  // (senza chiamare ensureTauriApis per mantenere la user gesture chain)
+  if (!savedPath) {
+    await salvaFileConNome();
+    return;
+  }
+  
+  // C'è un percorso salvato, verifica se Tauri è disponibile
+  // Controllo sincrono per non interrompere la user gesture chain
+  const fs = tauriFs || window.__TAURI__?.fs;
+  const hasTauri = fs && typeof fs.writeTextFile === 'function';
+  
+  // Se Tauri è disponibile, chiedi conferma e salva
+  if (hasTauri) {
+    // C'è un file corrente salvato, chiedi conferma di sovrascrittura
+    const nomeFile = savedPath.split(/[/\\]/).pop() || savedPath; // Estrai solo il nome del file
+    const conferma = await showConfirm(`Vuoi sovrascrivere il file "${nomeFile}"?`);
+    
+    if (conferma) {
+      // L'utente ha confermato, salva direttamente nel file corrente senza aprire il dialogo
+      // salvaFileLor gestisce già gli errori e mostra messaggi appropriati
+      await salvaFileLor(savedPath, true);
+    }
+    // Se l'utente annulla, non fare nulla
+  } else {
+    // Tauri non è disponibile, usa "Salva con Nome" 
+    // (chiamato direttamente per mantenere la user gesture chain)
+    await salvaFileConNome();
+  }
+}
+
+// Funzione per salvare con nome (sempre chiede il nome)
+async function salvaFileConNome() {
+  // Chiama immediatamente salvaFileLor senza delay per mantenere la user gesture chain
+  await salvaFileLor(null, true);
 }
 
 async function offerRestorePreviousSession() {
@@ -354,6 +699,12 @@ function setupPersistenceButtons() {
   if (fileInput) {
     fileInput.addEventListener('change', (event) => handleFileInputImport(event, fileInput));
   }
+  
+  // Gestione input per file .lor
+  const fileInputLor = document.getElementById('input-import-lor');
+  if (fileInputLor) {
+    fileInputLor.addEventListener('change', (event) => handleFileInputImport(event, fileInputLor));
+  }
 }
 
 async function handleExportJson() {
@@ -427,14 +778,17 @@ function fallbackExportJson() {
   }
 }
 
-async function handleImportJson(fileInput) {
-  showInfoToast('Importazione in corso...');
+// Funzione per importare file .lor (Pratica Edilizia)
+async function handleImportLor(fileInput) {
+  showInfoToast('Importazione pratica in corso...');
   try {
     await ensureTauriApis();
     if (tauriDialog && typeof tauriDialog.open === 'function' && tauriFs && typeof tauriFs.readTextFile === 'function') {
       const selection = await tauriDialog.open({
         multiple: false,
-        filters: [{ name: 'File JSON', extensions: ['json'] }]
+        filters: [
+          { name: 'File Pratica Edilizia', extensions: ['lor'] }
+        ]
       });
       const filePath = Array.isArray(selection) ? selection[0] : selection;
       if (!filePath) {
@@ -450,6 +804,67 @@ async function handleImportJson(fileInput) {
 
       const contents = await tauriFs.readTextFile(filePath);
       await applyImportedData(contents);
+      
+      // Aggiorna il percorso del file corrente
+      currentSaveFilePath = filePath;
+      localStorage.setItem('currentSaveFilePath', filePath);
+      
+    // Aggiorna le informazioni del file nel titolo della finestra
+    await aggiornaInfoFile();
+      
+      showSuccessToast('Importazione pratica completata.');
+      return;
+    }
+  } catch (error) {
+    console.error('Errore durante l\'importazione del file .lor', error);
+    showErrorToast('Errore durante l\'importazione.');
+    return;
+  }
+
+  // Fallback: usa input file del browser
+  if (fileInput) {
+    fileInput.value = '';
+    fileInput.click();
+  } else {
+    showErrorToast('Funzionalità di importazione non disponibile.');
+  }
+}
+
+async function handleImportJson(fileInput) {
+  showInfoToast('Importazione in corso...');
+  try {
+    await ensureTauriApis();
+    if (tauriDialog && typeof tauriDialog.open === 'function' && tauriFs && typeof tauriFs.readTextFile === 'function') {
+      const selection = await tauriDialog.open({
+        multiple: false,
+        filters: [
+          { name: 'File Pratica Edilizia', extensions: ['lor'] },
+          { name: 'File JSON', extensions: ['json'] }
+        ]
+      });
+      const filePath = Array.isArray(selection) ? selection[0] : selection;
+      if (!filePath) {
+        toastInfo?.hide();
+        return;
+      }
+
+      const conferma = await showConfirm('Questa operazione sostituirà tutti i dati attuali. Vuoi continuare?');
+      if (!conferma) {
+        toastInfo?.hide();
+        return;
+      }
+
+      const contents = await tauriFs.readTextFile(filePath);
+      await applyImportedData(contents);
+      
+      // Se il file è .lor, aggiorna il percorso del file corrente
+      if (filePath.endsWith('.lor')) {
+        currentSaveFilePath = filePath;
+        localStorage.setItem('currentSaveFilePath', filePath);
+    // Aggiorna le informazioni del file nel titolo della finestra
+    await aggiornaInfoFile();
+      }
+      
       showSuccessToast('Importazione completata.');
       return;
     }
@@ -483,6 +898,17 @@ async function handleFileInputImport(event, fileInput) {
       return;
     }
     await applyImportedData(contents);
+    
+    // Se il file è .lor, aggiorna il percorso del file corrente (se disponibile)
+    if (file.name.endsWith('.lor')) {
+      // Nota: con file input non abbiamo il percorso completo, solo il nome
+      // Salviamo il nome per riferimento
+      currentSaveFilePath = file.name;
+      localStorage.setItem('currentSaveFilePath', file.name);
+      // Aggiorna le informazioni del file nel titolo della finestra
+      aggiornaInfoFile();
+    }
+    
     showSuccessToast('Importazione completata.');
   } catch (error) {
     console.error('Errore durante l\'importazione del file JSON (input)', error);
@@ -812,6 +1238,39 @@ function setupEventDelegation() {
       }
       
       // Gestione bottoni locali nella vista edifici
+      if (target.classList.contains('btn-duplica-locale-edifici')) {
+        e.preventDefault();
+        e.stopPropagation();
+        const edificioId = target.dataset.edificioId;
+        const pianoId = target.dataset.pianoId;
+        const localeId = target.dataset.localeId;
+        
+        if (!edificioId || !pianoId || !localeId) {
+          showErrorToast('Dati mancanti per duplicare il locale.');
+          return;
+        }
+
+        try {
+          const localeDuplicato = dataModel.duplicaLocale(edificioId, pianoId, localeId);
+          if (!localeDuplicato) {
+            showErrorToast('Impossibile duplicare il locale.');
+            return;
+          }
+          
+          showSuccessToast('Locale duplicato con successo.');
+          aggiornaVistaEdifici();
+          
+          // Apri automaticamente la modale del locale duplicato
+          setTimeout(() => {
+            apriModalLocale(edificioId, pianoId, localeDuplicato.id);
+          }, 100);
+        } catch (error) {
+          console.error('Errore durante la duplicazione del locale', error);
+          showErrorToast('Errore durante la duplicazione.');
+        }
+        return;
+      }
+      
       if (target.classList.contains('btn-modifica-locale-edifici')) {
         e.preventDefault();
         e.stopPropagation();
@@ -857,7 +1316,7 @@ function setupEventDelegation() {
         return;
       }
       
-      if (target.classList.contains('btn-duplica-locale')) {
+      if (target.classList.contains('btn-duplica-locale') || target.classList.contains('btn-duplica-locale-edifici')) {
         e.preventDefault();
         e.stopPropagation();
         const edificioId = target.dataset.edificioId;
@@ -879,6 +1338,11 @@ function setupEventDelegation() {
           showSuccessToast('Locale duplicato con successo.');
           aggiornaListaLocali();
           aggiornaVistaEdifici();
+          
+          // Apri automaticamente la modale del locale duplicato
+          setTimeout(() => {
+            apriModalLocale(edificioId, pianoId, localeDuplicato.id);
+          }, 100);
         } catch (error) {
           console.error('Errore durante la duplicazione del locale', error);
           showErrorToast('Errore durante la duplicazione.');
@@ -938,6 +1402,8 @@ function setupNavigazione() {
   const btnNuovoLocale = document.getElementById('btn-nuovo-locale');
   const btnGeneraReport = document.getElementById('btn-genera-report');
   const btnNuovoCalcolo = document.getElementById('btn-nuovo-calcolo');
+  const btnSalva = document.getElementById('btn-salva');
+  const btnSalvaConNome = document.getElementById('btn-salva-con-nome');
   const btnChiudiApp = document.getElementById('btn-chiudi-app');
   const btnBackEdifici = document.getElementById('btn-back-edifici');
 
@@ -979,12 +1445,102 @@ function setupNavigazione() {
   if (btnNuovoCalcolo) {
     btnNuovoCalcolo.addEventListener('click', handleNuovoCalcolo);
   }
+  if (btnSalva) {
+    btnSalva.addEventListener('click', salvaFile);
+  }
+  if (btnSalvaConNome) {
+    btnSalvaConNome.addEventListener('click', salvaFileConNome);
+  }
   if (btnChiudiApp) {
     btnChiudiApp.addEventListener('click', handleChiudiApp);
   }
   if (btnBackEdifici) {
     btnBackEdifici.addEventListener('click', () => {
       mostraVista('edifici');
+    });
+  }
+  
+  // Menu File - collega ai gestori esistenti
+  const menuNuovoCalcolo = document.getElementById('menu-nuovo-calcolo');
+  if (menuNuovoCalcolo) {
+    menuNuovoCalcolo.addEventListener('click', (e) => {
+      e.preventDefault();
+      handleNuovoCalcolo();
+    });
+  }
+
+  const menuSalva = document.getElementById('menu-salva');
+  if (menuSalva) {
+    menuSalva.addEventListener('click', (e) => {
+      e.preventDefault();
+      salvaFile();
+    });
+  }
+
+  const menuSalvaConNome = document.getElementById('menu-salva-con-nome');
+  if (menuSalvaConNome) {
+    menuSalvaConNome.addEventListener('click', (e) => {
+      e.preventDefault();
+      salvaFileConNome();
+    });
+  }
+
+  const menuImportaPratica = document.getElementById('menu-importa-pratica');
+  const fileInputLor = document.getElementById('input-import-lor');
+  if (menuImportaPratica) {
+    menuImportaPratica.addEventListener('click', (e) => {
+      e.preventDefault();
+      handleImportLor(fileInputLor);
+    });
+  }
+
+  const menuImportJson = document.getElementById('menu-import-json');
+  const fileInputJson = document.getElementById('input-import-json');
+  if (menuImportJson) {
+    menuImportJson.addEventListener('click', (e) => {
+      e.preventDefault();
+      handleImportJson(fileInputJson);
+    });
+  }
+
+  const menuExportJson = document.getElementById('menu-export-json');
+  if (menuExportJson) {
+    menuExportJson.addEventListener('click', (e) => {
+      e.preventDefault();
+      handleExportJson();
+    });
+  }
+
+  const menuExportExcel = document.getElementById('menu-export-excel');
+  if (menuExportExcel) {
+    menuExportExcel.addEventListener('click', (e) => {
+      e.preventDefault();
+      handleExportExcel();
+    });
+  }
+
+  // Menu Report - collega ai gestori esistenti
+  const menuRiepilogoSuperfici = document.getElementById('menu-riepilogo-superfici');
+  if (menuRiepilogoSuperfici) {
+    menuRiepilogoSuperfici.addEventListener('click', (e) => {
+      e.preventDefault();
+      mostraVista('riepilogo-superfici');
+    });
+  }
+
+  const menuRiepilogoSuperficiNonResidenziali = document.getElementById('menu-riepilogo-superfici-non-residenziali');
+  if (menuRiepilogoSuperficiNonResidenziali) {
+    menuRiepilogoSuperficiNonResidenziali.addEventListener('click', (e) => {
+      e.preventDefault();
+      mostraVista('riepilogo-superfici-non-residenziali');
+    });
+  }
+
+  const menuCostoCostruzione = document.getElementById('menu-costo-costruzione');
+  if (menuCostoCostruzione) {
+    menuCostoCostruzione.addEventListener('click', (e) => {
+      e.preventDefault();
+      mostraVista('costo-costruzione');
     });
   }
 }
@@ -1001,12 +1557,19 @@ function mostraVista(nomeVista) {
   });
   
   // Mostra la vista selezionata
-  document.getElementById(`view-${nomeVista}`).classList.add('active');
+  const vistaElement = document.getElementById(`view-${nomeVista}`);
+  if (vistaElement) {
+    vistaElement.classList.add('active');
+  }
+  
+  // Aggiorna il pulsante solo se esiste (per viste senza pulsante nella navbar)
   const btn = document.getElementById(`btn-${nomeVista}`);
-  btn.classList.add('active');
-  if (btn.classList.contains('btn-outline-light')) {
-    btn.classList.remove('btn-outline-light');
-    btn.classList.add('btn-light');
+  if (btn) {
+    btn.classList.add('active');
+    if (btn.classList.contains('btn-outline-light')) {
+      btn.classList.remove('btn-outline-light');
+      btn.classList.add('btn-light');
+    }
   }
   
   statoApp.vistaCorrente = nomeVista;
@@ -1038,6 +1601,11 @@ function mostraVista(nomeVista) {
       break;
     case 'riepilogo-superfici-non-residenziali':
       generaRiepilogoSuperficiNonResidenziali();
+      break;
+    case 'aggetti':
+      if (window.aggiornaVistaAggetti) {
+        window.aggiornaVistaAggetti();
+      }
       break;
     case 'costo-costruzione':
       generaCostoCostruzione();
@@ -1107,6 +1675,13 @@ function aggiornaVistaEdifici() {
                        title="Doppio click per modificare">
                     <div class="locale-header">
                       <div class="locale-actions">
+                        <button class="btn btn-icon-blue btn-circle btn-circle-sm btn-duplica-locale-edifici" 
+                                data-edificio-id="${edificio.id}" 
+                                data-piano-id="${piano.id}" 
+                                data-locale-id="${locale.id}"
+                                aria-label="Duplica locale" title="Duplica locale">
+                          D
+                        </button>
                         <button class="btn btn-icon-orange btn-circle btn-circle-sm btn-modifica-locale-edifici" 
                                 data-edificio-id="${edificio.id}" 
                                 data-piano-id="${piano.id}" 
@@ -1720,6 +2295,77 @@ function generaReport(idsOverride = null) {
     return;
   }
   
+  // Raccogli tutte le aperture con sporgenza > 1.20 per la numerazione N°AGG
+  const aperturePerNumerazione = [];
+  edificiDaReportare.forEach(edificio => {
+    const piani = Array.isArray(edificio.piani) ? edificio.piani : [];
+    piani.forEach(piano => {
+      const locali = Array.isArray(piano?.locali) ? piano.locali : [];
+      locali.forEach(locale => {
+        let aperture = [];
+        if (Array.isArray(locale.aperture)) {
+          aperture = locale.aperture;
+        } else if (locale.aperture && typeof locale.aperture === 'object') {
+          try { aperture = Object.values(locale.aperture); } catch(e) { aperture = []; }
+        }
+        
+        aperture.forEach((apertura, index) => {
+          const sporgenza = parseItalianNumber(apertura.sporgenza || '0');
+          if (sporgenza > 1.20) {
+            aperturePerNumerazione.push({
+              apertura: apertura,
+              edificioId: edificio.id,
+              pianoId: piano.id,
+              localeId: locale.id,
+              indiceApertura: index
+            });
+          }
+        });
+      });
+    });
+  });
+  
+  // Funzione helper per normalizzare una stringa numerica italiana
+  function normalizzaValoreStringa(valoreStr) {
+    if (!valoreStr || valoreStr.trim() === '') {
+      return '0.00';
+    }
+    const valoreNum = parseItalianNumber(valoreStr.toString().trim()) || 0;
+    const normalizzato = Number(valoreNum.toFixed(2));
+    return normalizzato.toString();
+  }
+  
+  // Raggruppa le aperture per valori identici e assegna numeri progressivi
+  const mappaNagg = new Map();
+  const gruppiPerColoreNumerazione = new Map();
+  let numeroProgressivo = 1;
+  
+  aperturePerNumerazione.forEach((item) => {
+    const apertura = item.apertura;
+    const altezzaStr = (apertura.altezza || '0').toString().trim();
+    const hdavanzaleStr = (apertura.hdavanzale || '0').toString().trim();
+    const sporgenzaStr = (apertura.sporgenza || '0').toString().trim();
+    const impostaStr = (apertura.imposta || '0,20').toString().trim();
+    
+    const altezzaNorm = normalizzaValoreStringa(altezzaStr);
+    const hdavanzaleNorm = normalizzaValoreStringa(hdavanzaleStr);
+    const sporgenzaNorm = normalizzaValoreStringa(sporgenzaStr);
+    const impostaNorm = normalizzaValoreStringa(impostaStr);
+    
+    const chiaveGruppo = `${altezzaNorm}_${hdavanzaleNorm}_${sporgenzaNorm}_${impostaNorm}`;
+    
+    // Se è il primo elemento di questo gruppo, assegna un nuovo numero
+    if (!gruppiPerColoreNumerazione.has(chiaveGruppo)) {
+      gruppiPerColoreNumerazione.set(chiaveGruppo, numeroProgressivo);
+      numeroProgressivo++;
+    }
+    
+    // Crea una chiave univoca per questa apertura
+    const chiaveApertura = `${item.edificioId}_${item.pianoId}_${item.localeId}_${item.indiceApertura}`;
+    const naggNumerato = gruppiPerColoreNumerazione.get(chiaveGruppo);
+    mappaNagg.set(chiaveApertura, naggNumerato);
+  });
+  
   let html = '<div class="card-body">';
   
   edificiDaReportare.forEach(edificio => {
@@ -1735,7 +2381,7 @@ function generaReport(idsOverride = null) {
         
           html += `<div class="table-responsive">`;
         html += `<table class="table table-hover report-table text-center">
-          <colgroup>\n            <col class=\"w-unita col-unita\">\n            <col class=\"w-piano col-piano\">\n            <col class=\"w-locale\">\n            <col class=\"w-tipologia\">\n            <col class=\"w-specifica col-specifica\">\n            <col class=\"w-suplocale\">\n            <col class=\"w-l\">\n            <col class=\"w-l2\">\n            <col class=\"w-imp\">\n            <col class=\"w-dim\">\n            <col class=\"w-formula th-formula\">\n            <col class=\"w-supfin\">\n            <col class=\"w-tot\">\n            <col class=\"w-rapporto\">\n          </colgroup>\n          <thead class=\"table-primary\">\n            <tr>\n              <th class=\"col-unita\">UNITÀ</th>\n              <th class=\"col-piano\">PIANO</th>\n              <th>LOCALE</th>\n              <th>TIPOLOGIA</th>\n              <th class=\"col-specifica\">Specifica superficie</th>\n              <th>Sup. Locale (m²)</th>\n              <th>L</th>\n              <th>L/2</th>\n              <th>Imp.</th>\n              <th>Dimensioni apertura</th>\n              <th class=\"th-formula\">Calcolo superficie<br>finestrata utile</th>\n              <th>Sup. Fin. (m²)</th>\n              <th>Tot. (m²)</th>\n              <th>Rapporto (S<sub>u</sub>/A<sub>f</sub>)</th>\n            </tr>\n          </thead>\n          <tbody>`;
+          <colgroup>\n            <col class=\"w-unita col-unita\">\n            <col class=\"w-piano col-piano\">\n            <col class=\"w-locale\">\n            <col class=\"w-tipologia\">\n            <col class=\"w-specifica col-specifica\">\n            <col class=\"w-suplocale\">\n            <col class=\"w-l\">\n            <col class=\"w-l2\">\n            <col class=\"w-imp\">\n            <col class=\"w-nagg\">\n            <col class=\"w-dim\">\n            <col class=\"w-formula th-formula\">\n            <col class=\"w-supfin\">\n            <col class=\"w-tot\">\n            <col class=\"w-rapporto\">\n          </colgroup>\n          <thead class=\"table-primary\">\n            <tr>\n              <th class=\"col-unita\">UNITÀ</th>\n              <th class=\"col-piano\">PIANO</th>\n              <th>LOCALE</th>\n              <th>TIPOLOGIA</th>\n              <th class=\"col-specifica\">Specifica superficie</th>\n              <th>Sup. Locale (m²)</th>\n              <th>L</th>\n              <th>L/2</th>\n              <th>Imp.</th>\n              <th>N°AGG.</th>\n              <th>Dimensioni apertura</th>\n              <th class=\"th-formula\">Calcolo superficie<br>finestrata utile</th>\n              <th>Sup. Fin. (m²)</th>\n              <th>Tot. (m²)</th>\n              <th>Rapporto (S<sub>u</sub>/A<sub>f</sub>)</th>\n            </tr>\n          </thead>\n          <tbody>`;
 
         const locali = Array.isArray(piano?.locali) ? piano.locali : [];
         if (locali.length === 0) {
@@ -1750,6 +2396,7 @@ function generaReport(idsOverride = null) {
               <td>0,00</td>
               <td>0,000</td>
               <td>0,20</td>
+              <td></td>
               <td>0,00 × 0,00</td>
               <td class="cell-formula">0,00×(0,00+(0,000:3))</td>
               <td>0,00</td>
@@ -1778,6 +2425,7 @@ function generaReport(idsOverride = null) {
                  <td>0,00</td>
                  <td>0,000</td>
                  <td>0,20</td>
+                 <td></td>
                  <td>0,00 × 0,00</td>
                  <td class="cell-formula">0,00×(0,00+(0,000:3))</td>
                  <td>0,00</td>
@@ -1818,10 +2466,15 @@ function generaReport(idsOverride = null) {
               }
 
               // dettagli apertura
+              // Usa la numerazione progressiva se disponibile, altrimenti usa nagg originale
+              const chiaveApertura = `${edificio.id}_${piano.id}_${locale.id}_${index}`;
+              const naggNumerato = mappaNagg.get(chiaveApertura);
+              const nagg = naggNumerato !== undefined ? naggNumerato.toString() : (apertura.nagg || '');
               html += `
                 <td>${formatItalianNumber(L)}</td>
                 <td>${formatItalianNumber(calcoli.l2, 3)}</td>
                 <td>${formatItalianNumber(imp)}</td>
+                <td>${escapeHtml(nagg)}</td>
                 <td>${formatItalianNumber(larghezza)} × ${formatItalianNumber(H)}</td>
                 <td class="cell-formula">${formatItalianNumber(larghezza)}×(${formatItalianNumber(calcoli.intero)}+(${formatItalianNumber(calcoli.unterzo,3)}:3))</td>
                 <td>${formatItalianNumber(calcoli.areaFinestrata)}</td>
@@ -6155,6 +6808,13 @@ async function handleNuovoCalcolo() {
   statoApp.edificioSelezionato = null;
   statoApp.pianoSelezionato = null;
   statoApp.localeSelezionato = null;
+  
+  // Resetta il percorso del file corrente
+  currentSaveFilePath = null;
+  localStorage.removeItem('currentSaveFilePath');
+  
+    // Aggiorna le informazioni del file nel titolo della finestra
+    await aggiornaInfoFile();
 
   await autoSaveDataModel();
   aggiornaVistaEdifici();

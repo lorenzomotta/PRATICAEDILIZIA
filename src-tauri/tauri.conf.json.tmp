@@ -28,7 +28,6 @@
       }
     },
     "bundle": {
-      "active": true,
       "targets": "all",
       "identifier": "com.praticaedilizia.app",
       "icon": [
@@ -52,7 +51,6 @@
       }
     ],
     "updater": {
-      "active": true,
       "endpoints": [
         "https://github.com/lorenzomotta/PRATICAEDILIZIA/releases/latest/download/latest.json"
       ],

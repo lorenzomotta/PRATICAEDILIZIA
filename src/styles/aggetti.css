@@ -1,0 +1,54 @@
+/* Stili per la vista Aggetti */
+
+#view-aggetti {
+  padding: 20px;
+}
+
+#aggetti-content {
+  padding: 20px;
+}
+
+.aggetti-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 20px;
+}
+
+.aggetti-table thead {
+  background-color: #0d6efd;
+  color: white;
+}
+
+.aggetti-table th,
+.aggetti-table td {
+  padding: 12px;
+  text-align: left;
+  border: 1px solid #dee2e6;
+}
+
+/* 
+ * Nota: Le regole nth-child(even) e hover sono gestite via JavaScript
+ * per permettere la colorazione personalizzata delle righe in base ai valori
+ */
+
+/* Classe per colori personalizzati delle righe - usa !important per sovrascrivere Bootstrap */
+.aggetti-row-colored {
+  background-color: var(--row-bg-color) !important;
+}
+
+.aggetti-table th {
+  font-weight: bold;
+  text-align: center;
+}
+
+.aggetti-table td {
+  text-align: center;
+}
+
+.aggetti-empty {
+  text-align: center;
+  padding: 40px;
+  color: #6c757d;
+  font-style: italic;
+}
+
