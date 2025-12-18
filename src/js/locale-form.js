@@ -840,7 +840,7 @@ function aggiornaNumerazioneApertureLocale() {
         naggInput.value = naggOriginale;
       } else {
         // Usa il valore numerato solo se non c'è un valore originale
-        naggInput.value = apertura.naggNumerato || '';
+      naggInput.value = apertura.naggNumerato || '';
       }
     }
   });
@@ -867,11 +867,11 @@ function aggiornaNumerazioneApertureLocale() {
         naggInput.value = naggOriginale;
       } else {
         // Per le aperture con sporgenza <= 1.20, svuota il campo N°AGG solo se non c'è un valore originale
-        const sporgenzaStr = (row.querySelector('.sporgenza')?.value || '0').toString().trim();
-        const sporgenza = parseItalianNumber(sporgenzaStr) || 0;
-        
-        if (sporgenza <= 1.20) {
-          naggInput.value = '';
+    const sporgenzaStr = (row.querySelector('.sporgenza')?.value || '0').toString().trim();
+    const sporgenza = parseItalianNumber(sporgenzaStr) || 0;
+    
+    if (sporgenza <= 1.20) {
+        naggInput.value = '';
         }
       }
     }

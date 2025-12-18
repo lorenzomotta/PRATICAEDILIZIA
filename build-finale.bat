@@ -65,6 +65,9 @@ if %BUILD_RESULT% EQU 0 (
     echo Compilazione completata!
     echo ========================================
     echo.
+    echo Creazione file ZIP per aggiornamenti...
+    call crea-zip-aggiornamenti.bat
+    echo.
     echo IMPORTANTE: I file .zip NON sono firmati.
     echo Esegui ora: firma-aggiornamenti.bat
 ) else (

@@ -65,6 +65,7 @@
           <div class="d-flex align-items-center gap-2 flex-wrap">
             <h2 class="text-primary mb-0">Gestione Edifici</h2>
             <button id="btn-nuovo-edificio" class="btn btn-success btn-circle btn-circle-lg" aria-label="Aggiungi edificio">+</button>
+            <button id="btn-apri-guida" class="btn btn-info btn-circle btn-circle-md" aria-label="Apri guida utente" title="Apri guida utente">?</button>
           </div>
         </div>
         <div class="gestione-edifici-layout">
@@ -342,6 +343,26 @@
           Si è verificato un errore.
         </div>
         <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Guida Utente -->
+  <div id="modal-guida" class="modal fade" tabindex="-1">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">📘 Guida Utente - Pratica Edilizia</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div id="guida-content" style="white-space: pre-wrap; font-family: Arial, sans-serif; line-height: 1.6; max-height: 70vh; overflow-y: auto;">
+            <p>Caricamento guida...</p>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Chiudi</button>
+        </div>
       </div>
     </div>
   </div>
