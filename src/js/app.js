@@ -166,6 +166,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   setupModalDuplicaEdificio();
   await initializePersistence();
   inizializzaApp();
+  // Controlla aggiornamenti all'avvio (dopo un breve delay per permettere l'inizializzazione completa)
+  setTimeout(() => {
+    controllaAggiornamenti();
+  }, 2000);
 });
 
 function showInfoToast(message) {
