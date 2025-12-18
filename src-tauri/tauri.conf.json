@@ -1,4 +1,4 @@
-﻿{
+{
     "build":  {
                   "beforeDevCommand":  "",
                   "beforeBuildCommand":  "",
@@ -62,7 +62,7 @@
                                   }
                               ],
                   "updater":  {
-                                  "active":  false,
+                                  "active":  true,
                                   "endpoints":  [
                                                     "https://github.com/lorenzomotta/PRATICAEDILIZIA/releases/latest/download/latest.json"
                                                 ],
