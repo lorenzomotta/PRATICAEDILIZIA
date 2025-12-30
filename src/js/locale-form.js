@@ -994,11 +994,39 @@ function salvaLocale() {
           window.mostraVista(vistaDaRipristinare);
         }
         
+        // Se la vista era REPORT, aggiorna anche la vista REPORT
+        if (vistaDaRipristinare === 'report' && window.generaReport) {
+          setTimeout(() => {
+            window.generaReport();
+          }, 100);
+        }
+        
         // Se la vista era AGGETTI, aggiorna anche la vista AGGETTI
         if (vistaDaRipristinare === 'aggetti' && window.aggiornaVistaAggetti) {
           // Usa un piccolo delay per assicurarsi che la vista sia stata mostrata
           setTimeout(() => {
             window.aggiornaVistaAggetti();
+          }, 100);
+        }
+        
+        // Se la vista era riepilogo-superfici, aggiorna anche la vista riepilogo-superfici
+        if (vistaDaRipristinare === 'riepilogo-superfici' && window.generaRiepilogoSuperfici) {
+          setTimeout(() => {
+            window.generaRiepilogoSuperfici();
+          }, 100);
+        }
+        
+        // Se la vista era riepilogo-superfici-non-residenziali, aggiorna anche la vista
+        if (vistaDaRipristinare === 'riepilogo-superfici-non-residenziali' && window.generaRiepilogoSuperficiNonResidenziali) {
+          setTimeout(() => {
+            window.generaRiepilogoSuperficiNonResidenziali();
+          }, 100);
+        }
+      } else {
+        // Se non c'era una vista salvata, controlla la vista corrente e aggiornala se necessario
+        if (window.statoApp && window.statoApp.vistaCorrente === 'report' && window.generaReport) {
+          setTimeout(() => {
+            window.generaReport();
           }, 100);
         }
       }
@@ -1029,6 +1057,20 @@ function salvaLocale() {
         // Usa un piccolo delay per assicurarsi che la vista sia stata mostrata
         setTimeout(() => {
           window.aggiornaVistaAggetti();
+        }, 100);
+      }
+      
+      // Se la vista era riepilogo-superfici, aggiorna anche la vista riepilogo-superfici
+      if (vistaDaRipristinare === 'riepilogo-superfici' && window.generaRiepilogoSuperfici) {
+        setTimeout(() => {
+          window.generaRiepilogoSuperfici();
+        }, 100);
+      }
+      
+      // Se la vista era riepilogo-superfici-non-residenziali, aggiorna anche la vista
+      if (vistaDaRipristinare === 'riepilogo-superfici-non-residenziali' && window.generaRiepilogoSuperficiNonResidenziali) {
+        setTimeout(() => {
+          window.generaRiepilogoSuperficiNonResidenziali();
         }, 100);
       }
     }

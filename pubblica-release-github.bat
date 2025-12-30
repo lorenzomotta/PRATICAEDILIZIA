@@ -123,9 +123,9 @@ if %FILE_MANCANTI% EQU 1 (
     set /p CONTINUA="Vuoi continuare comunque? (S/N): "
     if /i not "!CONTINUA!"=="S" (
         echo Operazione annullata.
-        pause
-        exit /b 1
-    )
+    pause
+    exit /b 1
+)
 )
 )
 
@@ -197,8 +197,12 @@ echo 4. IMPORTANTE: Rimuovi il flag "Pre-release" se vuoi renderla ufficiale
 echo.
 echo 5. Clicca "Publish release"
 echo.
-echo 6. Dopo la pubblicazione, GitHub genererà automaticamente il file latest.json
-echo    necessario per gli aggiornamenti automatici.
+echo 6. IMPORTANTE: Dopo la pubblicazione, genera e carica il file latest.json:
+echo    - Esegui: genera-latest-json.bat
+echo    - Vai alla release pubblicata su GitHub
+echo    - Clicca "Edit release"
+echo    - Trascina il file latest.json nella sezione "Attachments"
+echo    - Salva la release
 echo.
 echo 7. Verifica che il file latest.json sia disponibile all'URL:
 echo    https://github.com/%REPO%/releases/latest/download/latest.json

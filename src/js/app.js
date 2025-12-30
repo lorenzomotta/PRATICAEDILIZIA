@@ -197,11 +197,12 @@ async function aggiornaInfoFile() {
   
   const filePath = currentSaveFilePath || localStorage.getItem('currentSaveFilePath');
   
-  let titleText = 'Pratica Edilizia 1.1.0';
+  let titleText = 'Pratica Edilizia';
   
   if (filePath) {
-    // Aggiungi il percorso del file al titolo
-    titleText = `Pratica Edilizia 1.1.0 - ${filePath}`;
+    // Estrai solo il nome del file dal percorso completo
+    const fileName = filePath.split(/[/\\]/).pop() || filePath;
+    titleText = fileName;
   }
   
   // Aggiorna il titolo della pagina (funziona in browser)
@@ -216,7 +217,7 @@ async function aggiornaInfoFile() {
       const fileName = filePath.split(/[/\\]/).pop() || filePath;
       
       // Mostra solo il nome del file nella navbar
-      filePathDisplay.textContent = `- ${fileName}`;
+      filePathDisplay.textContent = fileName;
       filePathDisplay.style.display = 'inline';
       
       // Verifica se abbiamo un percorso completo (contiene separatori di percorso)
@@ -1015,15 +1016,40 @@ function inizializzaApp() {
 // Funzione per controllare se ci sono aggiornamenti disponibili
 async function controllaAggiornamenti() {
   try {
+    console.log('🔍 Controllo aggiornamenti in corso...');
+    
+    // Aspetta che Tauri sia completamente inizializzato
     await ensureTauriApis();
     
+    // Aspetta fino a 5 secondi che l'updater sia disponibile
+    let tentativi = 0;
+    const maxTentativi = 50; // 5 secondi (50 * 100ms)
+    
+    while (!tauriUpdater && tentativi < maxTentativi) {
+      await new Promise(resolve => setTimeout(resolve, 100));
+      await ensureTauriApis();
+      tentativi++;
+    }
+    
     if (!tauriUpdater) {
-      console.log('Sistema di aggiornamenti non disponibile');
+      console.warn('⚠️ Sistema di aggiornamenti non disponibile dopo', maxTentativi * 100, 'ms');
+      console.log('Verifica che:');
+      console.log('1. Il feature "updater" sia abilitato in Cargo.toml');
+      console.log('2. La configurazione updater in tauri.conf.json sia corretta');
+      console.log('3. L\'applicazione sia stata compilata con il feature updater');
       return;
     }
     
+    console.log('✅ Updater disponibile, controllo aggiornamenti...');
+    
     // Controlla se ci sono aggiornamenti disponibili
     const update = await tauriUpdater.checkUpdate();
+    
+    console.log('📦 Risultato controllo:', {
+      available: update.available,
+      currentVersion: update.currentVersion,
+      version: update.version
+    });
     
     if (update.available) {
       // Mostra una notifica all'utente
@@ -1035,19 +1061,26 @@ async function controllaAggiornamenti() {
       );
       
       if (conferma) {
+        console.log('⬇️ Download aggiornamento in corso...');
         // Avvia il download e l'installazione dell'aggiornamento
         await update.downloadAndInstall();
         
         // Dopo l'installazione, riavvia l'applicazione
         showInfoToast('Aggiornamento completato. L\'applicazione verrà riavviata...');
+        console.log('🔄 Riavvio applicazione...');
         await tauriUpdater.restartApp();
       }
     } else {
-      console.log('Nessun aggiornamento disponibile');
+      console.log('✅ Nessun aggiornamento disponibile. Versione corrente:', update.currentVersion);
     }
   } catch (error) {
-    console.error('Errore durante il controllo degli aggiornamenti:', error);
-    // Non mostrare errori all'utente se il controllo fallisce
+    console.error('❌ Errore durante il controllo degli aggiornamenti:', error);
+    console.error('Dettagli errore:', {
+      message: error.message,
+      stack: error.stack,
+      name: error.name
+    });
+    // Non mostrare errori all'utente se il controllo fallisce silenziosamente
   }
 }
 
@@ -1571,28 +1604,28 @@ const GUIDA_UTENTE_CONTENUTO = `# 📘 Guida Utente - Pratica Edilizia
 7. [Schema Aggetto](#schema-aggetto)
 8. [Report e Riepiloghi](#report-e-riepiloghi)
 9. [Gestione File](#gestione-file)
-10. [Funzionalità Avanzate](#funzionalità-avanzate)
+10. [FunzionalitÃ  Avanzate](#funzionalitÃ -avanzate)
 
 ---
 
 ## 🎯 Introduzione
 
-**Pratica Edilizia** è un'applicazione desktop professionale per la gestione completa di progetti edilizi. Ti permette di:
+**Pratica Edilizia** è un'applicazione che permette di:
 
 - Organizzare edifici, piani e locali in modo strutturato
-- Calcolare automaticamente i rapporti di superficie e area finestrata
-- Generare report dettagliati per la conformità normativa
+- Calcolare superfici dei locali
+- Inserire aperture associate al locale
+- Calcolare area finestrata 
+- Calcolare Rapporto aeroilluminante
+- Generare report dettagliati 
 - Esportare i dati in vari formati
 
-L'applicazione è progettata per tecnici, architetti e professionisti del settore edilizio che devono gestire pratiche edilizie e verificare la conformità dei progetti.
-
 ---
-
 ## 🚀 Primi Passi
 
 ### Interfaccia Principale
 
-Quando apri l'applicazione, vedrai:
+All'apertura dell'applicazione, vedrai:
 
 - **Barra di navigazione superiore** con i pulsanti principali:
   - **Edifici** - Gestione degli edifici
@@ -1600,7 +1633,7 @@ Quando apri l'applicazione, vedrai:
   - **Rapporti** - Visualizzazione report
   - **Superfici Residenziali** - Riepilogo superfici residenziali
   - **Superfici Non Residenziali** - Riepilogo superfici non residenziali
-  - **Costo di Costruzione** - Calcolo costi
+  - **Costo di Costruzione** - Calcolo costo di costruzione
 
 - **Menu File** (pulsante "File" nella barra):
   - Nuovo progetto
@@ -1622,7 +1655,8 @@ Edificio
 - **Edificio:** "Palazzo Via Roma 10"
   - **Piano:** "Piano Terra"
     - **Locale:** "Soggiorno"
-      - **Apertura:** "Finestra principale"
+      - **Apertura:** "1"
+      - **Apertura:** "2"
 
 ---
 
@@ -1630,27 +1664,27 @@ Edificio
 
 ### Creare un Nuovo Edificio
 
-1. Clicca sul pulsante **"Edifici"** nella barra di navigazione (se non è già selezionato)
+1. Clicca sul pulsante **"Edifici"** nella barra di navigazione 
 2. Clicca sul pulsante verde **"+"** accanto al titolo "Gestione Edifici"
 3. Compila il form che appare:
    - **Nome Edificio** (obbligatorio)
-   - Altri campi opzionali
+   - Indirizzo (campo opzionale) può essere usato come campo personale
 4. Clicca **"Salva"**
 
 ### Modificare un Edificio
 
 1. Nella vista **Edifici**, trova l'edificio che vuoi modificare
-2. Clicca sul pulsante **matita** (✏️) accanto al nome dell'edificio
-3. Modifica i campi desiderati
+2. Clicca sul pulsante **matita** (M) accanto al nome dell'edificio
+3. Modifica i campi desiderati (EDIFICIO e INDIRIZZO)
 4. Clicca **"Salva"**
 
 ### Eliminare un Edificio
 
 1. Trova l'edificio nella lista
-2. Clicca sul pulsante **cestino** (🗑️) accanto al nome
+2. Clicca sul pulsante **x** accanto al nome
 3. Conferma l'eliminazione
 
-⚠️ **Attenzione:** Eliminare un edificio eliminerà anche tutti i piani e locali associati!
+⚠️  **Attenzione:** Eliminare un edificio eliminerÃ  anche tutti i piani e locali associati!
 
 ### Visualizzazione Edifici
 
@@ -1659,7 +1693,7 @@ Edificio
 
 ---
 
-## 🏗️ Gestione Piani
+##  — Gestione Piani
 
 ### Creare un Nuovo Piano
 
@@ -1673,17 +1707,17 @@ Edificio
 ### Modificare un Piano
 
 1. Trova il piano nell'elenco dei piani dell'edificio
-2. Clicca sul pulsante **matita** (✏️) accanto al nome
+2. Clicca sul pulsante **matita** (M) accanto al nome
 3. Modifica i campi
 4. Clicca **"Salva"**
 
 ### Eliminare un Piano
 
 1. Trova il piano nell'elenco
-2. Clicca sul pulsante **cestino** (🗑️)
+2. Clicca sul pulsante **X** 
 3. Conferma l'eliminazione
 
-⚠️ **Attenzione:** Eliminare un piano eliminerà anche tutti i locali associati!
+⚠️  **Attenzione:** Eliminare un piano eliminerÃ  anche tutti i locali di quel piano e le relative aperture
 
 ---
 
@@ -1736,22 +1770,22 @@ Il form per creare/modificare un locale contiene diverse sezioni:
   - Calcoli automatici (H TOT, L/2, UNTERZO, INTERO, AREA FINESTRATA)
 
 #### Pulsanti Azione
-- **"+"** (verde): Aggiungi nuova apertura
-- **✏️** (matita): Modifica apertura
-- **🗑️** (cestino): Elimina apertura
-- **📐** (squadra): Visualizza Schema Aggetto
+- **"+"** : Aggiungi nuova apertura
+- **M**   : Modifica apertura
+- **X**   : Elimina apertura
+- **S**   : Visualizza Schema Aggetto
 
 ### Modificare un Locale
 
 1. Dalla vista **Locali**, trova il locale nella lista
-2. Clicca sul pulsante **matita** (✏️) accanto al nome del locale
+2. Clicca sul pulsante **M** accanto al nome del locale
 3. Modifica i campi desiderati
 4. Clicca **"Salva"**
 
 ### Eliminare un Locale
 
 1. Trova il locale nella lista
-2. Clicca sul pulsante **cestino** (🗑️)
+2. Clicca sul pulsante **X** 
 3. Conferma l'eliminazione
 
 ---
@@ -1783,37 +1817,36 @@ L'applicazione calcola automaticamente:
 ### Modificare un'Apertura
 
 1. Nel form del locale, trova l'apertura nella tabella
-2. Clicca sul pulsante **matita** (✏️) nella riga dell'apertura
+2. Clicca sul pulsante **M** nella riga dell'apertura
 3. Modifica i valori
 4. I calcoli si aggiornano automaticamente
 
 ### Eliminare un'Apertura
 
 1. Trova l'apertura nella tabella
-2. Clicca sul pulsante **cestino** (🗑️) nella riga
+2. Clicca sul pulsante **X** nella riga
 3. Conferma l'eliminazione
 
 ---
 
-## 📐 Schema Aggetto
+## S Schema Aggetto
 
-Lo Schema Aggetto è una visualizzazione grafica dell'aggetto che ti permette di vedere e modificare le caratteristiche dell'apertura.
+Lo Schema Aggetto è una visualizzazione grafica dell'aggetto 
 
 ### Visualizzare lo Schema Aggetto
 
 1. Nel form di modifica locale, trova l'apertura desiderata
-2. Clicca sul pulsante **squadra** (📐) nella riga dell'apertura
-3. Si aprirà una finestra modale con lo schema grafico
+2. Clicca sul pulsante **S** nella riga dell'apertura
+3. Si aprirÃ  una finestra modale con lo schema grafico
 
 ### Modificare lo Schema
 
 Nello schema aggetto puoi:
-- Visualizzare graficamente le dimensioni
-- Modificare il **Numero Aggetto** direttamente nello schema
-- Esportare lo schema in formato DXF
-- Stampare lo schema
+- Visualizzare la rappresentazione grafica
+- Esportare lo schema in formato DXF (da implementare)
+- Stampare lo schema in formato PDF su foglio A/4
 
-### Esportare Schema DXF
+### Esportare Schema DXF (FUNZIONE PREVISTA e NON ANCORA PERFETTAMENTE FUNZIONANTE )
 
 1. Apri lo Schema Aggetto
 2. Clicca sul pulsante **"Esporta DXF"**
@@ -1834,7 +1867,8 @@ Nello schema aggetto puoi:
    - Superficie utile di ogni locale
    - Area finestrata totale
    - Rapporto calcolato
-   - Indicazione di conformità (✓ o ✗)
+   N.B. effettuando un doppio click su una riga si aprirà la scheda del locale selezionato e sarà possibile modificare i valori.
+   
 
 ### Superfici Residenziali
 
@@ -1842,12 +1876,14 @@ Nello schema aggetto puoi:
 2. Visualizzerai un riepilogo di:
    - Totale superficie residenziale per edificio
    - Suddivisione per piano
-   - Conformità ai requisiti
+    N.B. effettuando un doppio click su una riga si aprirà la scheda del locale selezionato e sarà possibile modificare i valori.
+   
 
 ### Superfici Non Residenziali
 
 1. Clicca sul pulsante **"Superfici Non Residenziali"**
 2. Visualizzerai un riepilogo simile per le superfici non residenziali
+ N.B. effettuando un doppio click su una riga si aprirà la scheda del locale selezionato e sarà possibile modificare i valori.
 
 ### Costo di Costruzione
 
@@ -1856,53 +1892,53 @@ Nello schema aggetto puoi:
 
 ---
 
-## 💾 Gestione File
+## ¾ Gestione File
 
 ### Salvare un Progetto
 
 **Salva:**
-- Clicca su **File → Salva**
-- Se è la prima volta, ti verrà chiesto dove salvare
-- Le volte successive salverà automaticamente nello stesso file
+- Clicca su **File  Salva**
+- Se è la prima volta, ti verrÃ  chiesto dove salvare
+- Le volte successive salverÃ  automaticamente nello stesso file
 
 **Salva con Nome:**
-- Clicca su **File → Salva con Nome**
+- Clicca su **File  Salva con Nome**
 - Scegli la posizione e il nome del file
 - Il file viene salvato con estensione \`.lor\`
 
 ### Creare un Nuovo Progetto
 
-1. Clicca su **File → Nuovo**
+1. Clicca su **File  Nuovo**
 2. Conferma se vuoi salvare le modifiche al progetto corrente
-3. Si aprirà un progetto vuoto
+3. Si aprirÃ  un progetto vuoto
 
 ### Importare Dati
 
 **Importa Pratica (.lor):**
-1. Clicca su **File → Importa Pratica**
+1. Clicca su **File  Importa Pratica**
 2. Seleziona il file \`.lor\` da importare
 3. I dati vengono caricati nell'applicazione
 
 **Importa JSON:**
-1. Clicca su **File → Importa JSON**
+1. Clicca su **File  Importa JSON**
 2. Seleziona il file JSON da importare
 3. I dati vengono caricati e convertiti nel formato dell'applicazione
 
 ### Esportare Dati
 
 **Esporta JSON:**
-1. Clicca su **File → Esporta JSON**
+1. Clicca su **File  Esporta JSON**
 2. Scegli dove salvare il file
 3. Tutti i dati vengono esportati in formato JSON
 
 **Esporta Excel:**
-1. Clicca su **File → Esporta Excel**
+1. Clicca su **File  Esporta Excel**
 2. Scegli dove salvare il file
 3. I dati vengono esportati in formato Excel (.xlsx)
 
 ---
 
-## ⚙️ Funzionalità Avanzate
+## ⚙️ FunzionalitÃ  Avanzate
 
 ### Calcoli Automatici
 
@@ -1911,7 +1947,7 @@ L'applicazione esegue calcoli automatici in tempo reale:
 - **Superficie Utile:** Calcolata automaticamente quando inserisci la "Determinazione Superficie"
 - **Area Finestrata:** Calcolata per ogni apertura
 - **Rapporto:** Calcolato automaticamente come rapporto tra Area Finestrata e Superficie Utile
-- **Conformità:** Verificata automaticamente confrontando il rapporto calcolato con quello richiesto
+- **Verifica Rapporti :** Verificata automaticamente confrontando il rapporto calcolato con quello richiesto
 
 ### Formato Numeri
 
@@ -1924,32 +1960,31 @@ L'applicazione usa il formato italiano:
 L'applicazione valida automaticamente:
 - Campi obbligatori non vuoti
 - Formato numerico corretto
-- Rapporti di conformità
+- Rapporti di conformitÃ 
 
 ### Indicatori Visivi
 
-- **✓ Verde:** Conformità verificata
-- **✗ Rosso:** Non conformità
+- **✓ Verde:** verifica positiva
+- **✗ Rosso:** verifica negativa
 - **Celle gialle:** Campi calcolati automaticamente
 - **Celle grigie:** Campi in sola lettura
 
 ---
 
-## 💡 Suggerimenti e Best Practices
+##  Suggerimenti e Best Practices
 
 ### Organizzazione Progetto
 
 1. **Inizia sempre dall'edificio:** Crea prima l'edificio, poi i piani, poi i locali
 2. **Usa nomi descrittivi:** Nomi chiari facilitano la navigazione
-3. **Salva frequentemente:** Usa Ctrl+S o File → Salva regolarmente
-4. **Backup regolari:** Esporta periodicamente i dati in JSON come backup
+
 
 ### Inserimento Dati
 
-1. **Inserisci i dati in ordine:** Edificio → Piano → Locale → Aperture
+1. **Inserisci i dati in ordine:** Edificio  Piano  Locale  Aperture
 2. **Verifica i calcoli:** Controlla sempre che i calcoli automatici siano corretti
 3. **Usa lo Schema Aggetto:** Visualizza sempre lo schema per verificare le aperture
-4. **Controlla i rapporti:** Verifica sempre la conformità nei report
+4. **Controlla i rapporti:** Verifica sempre la conformitÃ  nei report
 
 ### Risoluzione Problemi
 
@@ -1967,16 +2002,8 @@ L'applicazione valida automaticamente:
 
 ---
 
-## 📞 Supporto
 
-Per assistenza o segnalazione di problemi:
-- Consulta la documentazione tecnica nel file \`README.md\`
-- Verifica la versione dell'applicazione nella barra di navigazione
-
----
-
-**Versione:** 1.1.2  
-**Ultimo aggiornamento:** Dicembre 2024`;
+**Ultimo aggiornamento:** Dicembre 2025`;
 
 // Funzione per aprire la guida utente
 async function apriGuidaUtente() {
@@ -7062,9 +7089,11 @@ function apriModalLocale(edificioId = null, pianoId = null, localeId = null) {
     return;
   }
   
-  // Se siamo nella vista edifici, salva la vista corrente per ripristinarla dopo
-  if (statoApp.vistaCorrente === 'edifici') {
-    statoApp.vistaPrimaDelModal = 'edifici';
+  // Salva la vista corrente per ripristinarla dopo (edifici, riepilogo-superfici, ecc.)
+  if (statoApp.vistaCorrente === 'edifici' || 
+      statoApp.vistaCorrente === 'riepilogo-superfici' || 
+      statoApp.vistaCorrente === 'riepilogo-superfici-non-residenziali') {
+    statoApp.vistaPrimaDelModal = statoApp.vistaCorrente;
   }
   
   const modalElement = document.getElementById('modal-locale');
@@ -7199,6 +7228,9 @@ window.eliminaLocale = async function(edificioId, pianoId, localeId) {
 window.aggiornaListaLocali = aggiornaListaLocali;
 window.aggiornaVistaLocali = aggiornaVistaLocali;
 window.aggiornaVistaEdifici = aggiornaVistaEdifici;
+window.generaReport = generaReport;
+window.generaRiepilogoSuperfici = generaRiepilogoSuperfici;
+window.generaRiepilogoSuperficiNonResidenziali = generaRiepilogoSuperficiNonResidenziali;
 window.statoApp = statoApp;
 window.mostraVista = mostraVista;
 

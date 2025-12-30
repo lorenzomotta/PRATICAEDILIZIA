@@ -80,7 +80,7 @@ Edificio
 ### Modificare un Edificio
 
 1. Nella vista **Edifici**, trova l'edificio che vuoi modificare
-2. Clicca sul pulsante **matita** (M) accanto al nome dell'edificio
+2. Clicca sul pulsante (M) accanto al nome dell'edificio
 3. Modifica i campi desiderati (EDIFICIO e INDIRIZZO)
 4. Clicca **"Salva"**
 
@@ -113,14 +113,14 @@ Edificio
 ### Modificare un Piano
 
 1. Trova il piano nell'elenco dei piani dell'edificio
-2. Clicca sul pulsante **matita** (M) accanto al nome
+2. Clicca sul pulsante (M)) accanto al nome
 3. Modifica i campi
 4. Clicca **"Salva"**
 
 ### Eliminare un Piano
 
 1. Trova il piano nell'elenco
-2. Clicca sul pulsante **X** 
+2. Clicca sul pulsante (X))
 3. Conferma l'eliminazione
 
 ⚠️  **Attenzione:** Eliminare un piano eliminerÃ  anche tutti i locali di quel piano e le relative aperture
@@ -134,7 +134,7 @@ Edificio
 **Metodo 1 - Dalla vista Edifici:**
 1. Seleziona un edificio
 2. Seleziona un piano
-3. Clicca sul pulsante **"+"** nella sezione "Locali" del piano
+3. Clicca sul pulsante (+)) nella sezione "Locali" del piano
 4. Compila il form (vedi sezione seguente)
 5. Clicca **"Salva"**
 
@@ -142,7 +142,7 @@ Edificio
 1. Clicca sul pulsante **"Locali"** nella barra di navigazione
 2. Seleziona un edificio dal menu a tendina
 3. Seleziona un piano dal menu a tendina
-4. Clicca sul pulsante verde **"+"** accanto al titolo
+4. Clicca sul pulsante verde (+)) accanto al titolo
 5. Compila il form
 6. Clicca **"Salva"**
 
@@ -176,22 +176,22 @@ Il form per creare/modificare un locale contiene diverse sezioni:
   - Calcoli automatici (H TOT, L/2, UNTERZO, INTERO, AREA FINESTRATA)
 
 #### Pulsanti Azione
-- **"+"** : Aggiungi nuova apertura
-- **M**   : Modifica apertura
-- **X**   : Elimina apertura
-- **S**   : Visualizza Schema Aggetto
+- (+) : Aggiungi nuova apertura
+- (M)   : Modifica apertura
+- (X)   : Elimina apertura
+- (S)   : Visualizza Schema Aggetto
 
 ### Modificare un Locale
 
 1. Dalla vista **Locali**, trova il locale nella lista
-2. Clicca sul pulsante **M** accanto al nome del locale
+2. Clicca sul pulsante (M)) accanto al nome del locale
 3. Modifica i campi desiderati
 4. Clicca **"Salva"**
 
 ### Eliminare un Locale
 
 1. Trova il locale nella lista
-2. Clicca sul pulsante **X** 
+2. Clicca sul pulsante (X)) 
 3. Conferma l'eliminazione
 
 ---
@@ -201,7 +201,7 @@ Il form per creare/modificare un locale contiene diverse sezioni:
 ### Aggiungere un'Apertura
 
 1. Apri il form di modifica di un locale
-2. Nella sezione "Aperture", clicca sul pulsante **"+"** verde
+2. Nella sezione "Aperture", clicca sul pulsante (+)) verde
 3. Compila i campi dell'apertura:
    - **Numero Aggetto:** Numero identificativo dell'aggetto
    - **Larghezza:** Larghezza dell'apertura in metri
@@ -223,14 +223,14 @@ L'applicazione calcola automaticamente:
 ### Modificare un'Apertura
 
 1. Nel form del locale, trova l'apertura nella tabella
-2. Clicca sul pulsante **M** nella riga dell'apertura
+2. Clicca sul pulsante (M)) nella riga dell'apertura
 3. Modifica i valori
 4. I calcoli si aggiornano automaticamente
 
 ### Eliminare un'Apertura
 
 1. Trova l'apertura nella tabella
-2. Clicca sul pulsante **X** nella riga
+2. Clicca sul pulsante (X)) nella riga
 3. Conferma l'eliminazione
 
 ---
@@ -242,7 +242,7 @@ Lo Schema Aggetto è una visualizzazione grafica dell'aggetto
 ### Visualizzare lo Schema Aggetto
 
 1. Nel form di modifica locale, trova l'apertura desiderata
-2. Clicca sul pulsante **S** nella riga dell'apertura
+2. Clicca sul pulsante (S)) nella riga dell'apertura
 3. Si aprirÃ  una finestra modale con lo schema grafico
 
 ### Modificare lo Schema

@@ -95,7 +95,7 @@ if !SIGN_ERROR! NEQ 0 (
 REM Firma NSIS (se esiste)
 echo.
 echo Firma file NSIS (se presente)...
-echo.
+    echo.
 
 REM Verifica se il file ZIP NSIS esiste
 if not exist "target\release\bundle\nsis\Pratica Edilizia_%VERSIONE%_x64-setup.exe.zip" (
@@ -111,7 +111,7 @@ if not exist "target\release\bundle\nsis\Pratica Edilizia_%VERSIONE%_x64-setup.e
         echo Eseguo: cargo tauri signer sign -f "keys\keypair.key" "target\release\bundle\nsis\Pratica Edilizia_%VERSIONE%_x64-setup.exe.zip"
         cargo tauri signer sign -f "keys\keypair.key" "target\release\bundle\nsis\Pratica Edilizia_%VERSIONE%_x64-setup.exe.zip"
     )
-    
+
     set "NSIS_SIGN_ERROR=%ERRORLEVEL%"
     if !NSIS_SIGN_ERROR! NEQ 0 (
         echo.
