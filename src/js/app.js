@@ -4267,10 +4267,77 @@ function generaCostoCostruzione() {
         background-color: #00FFFF; 
         font-weight: bold;
       }
+      #costo-costruzione-content .tabella1-totale-valore {
+        font-size: 1.15em;
+      }
+      #costo-costruzione-content .totale-incrementi-riga-dati {
+        font-size: 1.15em;
+      }
       #costo-costruzione-content input[type="radio"] { 
         margin: 0 auto;
         display: block;
         cursor: pointer;
+      }
+      #costo-costruzione-content .oneri-urbanizzazione-sezione {
+        font-size: 1.2rem;
+        font-weight: bold;
+      }
+      #costo-costruzione-content .oneri-urbanizzazione-titolo {
+        font-size: 1.2rem;
+      }
+      #costo-costruzione-content .oneri-urbanizzazione-riga {
+        font-size: 1.2rem;
+      }
+      #costo-costruzione-content .oneri-operator {
+        font-size: 1.2rem;
+      }
+      #costo-costruzione-content .oneri-box-totale {
+        background-color: #90ee90;
+        font-weight: bold;
+        width: 120px;
+        padding: 8px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        font-size: 1.2rem;
+      }
+      #costo-costruzione-content .oneri-box-finale {
+        background-color: #ffffff;
+        font-weight: bold;
+        width: 200px;
+        padding: 8px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        font-size: 1.2rem;
+      }
+      #costo-costruzione-content .oneri-urbanizzazione-riga {
+        align-items: flex-end;
+      }
+      #costo-costruzione-content .oneri-cella {
+        min-width: 120px;
+      }
+      #costo-costruzione-content .oneri-cella-volume {
+        min-width: 180px;
+      }
+      #costo-costruzione-content .oneri-cella-finale {
+        min-width: 200px;
+      }
+      #costo-costruzione-content .oneri-input {
+        width: 120px;
+      }
+      #costo-costruzione-content .oneri-input-volume {
+        width: 180px;
+      }
+      #costo-costruzione-content .oneri-operator-cell {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 38px;
+        width: 1.5rem;
+        flex-shrink: 0;
+      }
+      #costo-costruzione-content .oneri-operator {
+        font-size: 1.2rem;
+        font-weight: bold;
       }
     </style>
     
@@ -4280,7 +4347,7 @@ function generaCostoCostruzione() {
     </div>
     
     <!-- TABELLA 1 - Incremento per superficie utile abitabile (art. 5) -->
-    <h3>TABELLA 1 - Incremento per superficie utile abitabile (art. 5)</h3>
+    <h3 id="costo-sezione-tabella-1">TABELLA 1 - Incremento per superficie utile abitabile (art. 5)</h3>
     <table class="table table-bordered">
       <thead>
         <tr>
@@ -4335,17 +4402,17 @@ function generaCostoCostruzione() {
         </tr>
         <tr class="table-totale">
           <td></td>
+          <td><strong>SU</strong></td>
+          <td><span class="tabella1-totale-valore">${formatItalianNumber(su)}</span></td>
           <td></td>
-          <td><strong>SU</strong><br>${formatItalianNumber(su)}</td>
-          <td></td>
-          <td></td>
-          <td><strong>Inc. 1</strong><br>${formatItalianNumber(inc1)}</td>
+          <td><strong>Inc. 1</strong></td>
+          <td><span class="tabella1-totale-valore">${formatItalianNumber(inc1)}</span></td>
         </tr>
       </tbody>
     </table>
 
     <!-- TABELLA 2 - Superfici per servizi e accessori relativi alla parte residenziale (art. 2) -->
-    <h3>TABELLA 2 - Superfici per servizi e accessori relativi alla parte residenziale (art. 2)</h3>
+    <h3 id="costo-sezione-tabella-2">TABELLA 2 - Superfici per servizi e accessori relativi alla parte residenziale (art. 2)</h3>
     <table class="table table-bordered">
       <thead>
         <tr>
@@ -4391,7 +4458,7 @@ function generaCostoCostruzione() {
     <p><strong>(Snr : Su) x 100 = ${formatItalianNumber(rapportoSnrSu)}</strong></p>
 
     <!-- TABELLA 3 - Incremento per servizi ed accessori relativi alla parte residenziale (art.6) -->
-    <h3>TABELLA 3 - Incremento per servizi ed accessori relativi alla parte residenziale (art.6)</h3>
+    <h3 id="costo-sezione-tabella-3">TABELLA 3 - Incremento per servizi ed accessori relativi alla parte residenziale (art.6)</h3>
     <table class="table table-bordered">
       <thead>
         <tr>
@@ -4423,14 +4490,14 @@ function generaCostoCostruzione() {
         </tr>
         <tr class="table-totale">
           <td></td>
-          <td></td>
-          <td><strong>Inc. 2</strong><br>${formatItalianNumber(incrementoArt6)}</td>
+          <td><strong>Inc. 2</strong></td>
+          <td><span class="tabella1-totale-valore">${formatItalianNumber(incrementoArt6)}</span></td>
         </tr>
       </tbody>
     </table>
 
     <!-- TABELLA 4 - Superfici residenziali e relativi servizi ed accessori -->
-    <h3>SUPERFICI RESIDENZIALI E RELATIVI SERVIZI ED ACCESSORI</h3>
+    <h3 id="costo-sezione-superfici-residenziali">SUPERFICI RESIDENZIALI E RELATIVI SERVIZI ED ACCESSORI</h3>
     <table class="table table-bordered">
       <thead>
         <tr>
@@ -4464,7 +4531,7 @@ function generaCostoCostruzione() {
     </table>
 
     <!-- TABELLA 5 - Incremento per particolari caratteristiche (art. 7) -->
-    <h3>TABELLA 4 - Incremento per particolari caratteristiche (art. 7)</h3>
+    <h3 id="costo-sezione-tabella-4">TABELLA 4 - Incremento per particolari caratteristiche (art. 7)</h3>
     <table class="table table-bordered">
       <thead>
         <tr>
@@ -4506,14 +4573,14 @@ function generaCostoCostruzione() {
         </tr>
         <tr class="table-totale">
           <td></td>
-          <td></td>
-          <td><strong>Inc. 3</strong><br><span id="inc3-value">0</span></td>
+          <td><strong>Inc. 3</strong></td>
+          <td><span class="tabella1-totale-valore"><span id="inc3-value">0</span></span></td>
         </tr>
       </tbody>
     </table>
 
     <!-- TABELLA 5 - Superfici per attività turistiche commerciali, direzionali e relativi accessori -->
-    <h3>SUPERFICI PER ATTIVITA' TURISTICHE COMMERCIALI, DIREZIONALI E RELATIVI ACCESSORI</h3>
+    <h3 id="costo-sezione-attivita-turistiche">SUPERFICI PER ATTIVITA' TURISTICHE COMMERCIALI, DIREZIONALI E RELATIVI ACCESSORI</h3>
     <table class="table table-bordered">
       <thead>
         <tr>
@@ -4547,7 +4614,7 @@ function generaCostoCostruzione() {
     </table>
 
     <!-- TABELLA 6 - ART. 8 DECRETO MINISTERIALE (nascosta di default) -->
-    <div class="mb-3">
+    <div class="mb-3" id="costo-sezione-art8">
       <button id="btn-toggle-art8" class="btn btn-outline-primary btn-sm" type="button">
         <span id="btn-toggle-art8-text">Mostra</span> ART. 8 DECRETO MINISTERIALE
       </button>
@@ -4624,7 +4691,7 @@ function generaCostoCostruzione() {
     </div>
 
     <!-- TABELLA 7 - Totale Incrementi e Maggiorazione -->
-    <div class="d-flex align-items-center gap-3 mb-3">
+    <div class="d-flex align-items-center gap-3 mb-3" id="costo-sezione-totale-incrementi">
       <h3 class="mb-0">TOTALE INCREMENTI</h3>
       <span class="text-muted small">(*) la classe dell'edificio e relativa maggiorazione si individuano in base a quanto prescritto dall'art. 8 del D.M. 10 maggio 1977 riportato nell'ultima pagina del presente prospetto</span>
     </div>
@@ -4638,7 +4705,7 @@ function generaCostoCostruzione() {
         <tr></tr>
       </thead>
       <tbody>
-        <tr>
+        <tr class="totale-incrementi-riga-dati">
           <td><strong>i = i1+i2+i3</strong><br><span id="totale-incrementi-value">0</span></td>
           <td><span id="classe-edificio-value">-</span></td>
           <td><span id="maggiorazione-value">-</span></td>
@@ -4647,7 +4714,7 @@ function generaCostoCostruzione() {
     </table>
 
     <!-- Sezione Calcolo Costo di Costruzione -->
-    <h3 class="mt-4">CALCOLO COSTO DI COSTRUZIONE</h3>
+    <h3 id="costo-sezione-calcolo-costo" class="mt-4">CALCOLO COSTO DI COSTRUZIONE</h3>
     <div class="table-responsive">
       <table class="table table-bordered">
         <tbody>
@@ -4664,7 +4731,7 @@ function generaCostoCostruzione() {
             <td>€/mq.</td>
           </tr>
           <tr>
-            <td>C - Costo di costruzione dell'edificio (Sc +St) x B = <span id="formula-costo-costruzione" style="background-color: #ffff00; padding: 2px 5px; border-radius: 3px;">(0,00 + 0,00) x 0,00</span></td>
+            <td>C - Costo di costruzione dell'edificio (Sc +St) x B = <span id="formula-costo-costruzione" style="padding: 2px 5px; border-radius: 3px;">(0,00 + 0,00) x 0,00</span></td>
             <td class="text-end"><strong><span id="costo-costruzione-totale-value">0,00</span></strong></td>
             <td>€</td>
           </tr>
@@ -4673,7 +4740,7 @@ function generaCostoCostruzione() {
     </div>
 
     <!-- Tabella Percentuali del Costo di Costruzione -->
-    <h3 class="mt-4">PERCENTUALI DEL COSTO DI COSTRUZIONE PER LA DETERMINAZIONE DEL CONTRIBUTO AFFERENTE ALLA CONCESSIONE EDILIZIA</h3>
+    <h3 id="costo-sezione-percentuali" class="mt-4">PERCENTUALI DEL COSTO DI COSTRUZIONE PER LA DETERMINAZIONE DEL CONTRIBUTO AFFERENTE ALLA CONCESSIONE EDILIZIA</h3>
     <p class="small mb-3">(Art. 3 e 6 della Legge 28 gennaio 1977, n. 10; Delib. Giunta Regionale n.5/53844 del 31-5-1994)</p>
     <div class="table-responsive">
       <table class="table table-bordered">
@@ -4754,7 +4821,7 @@ function generaCostoCostruzione() {
     <p class="small mt-2 mb-0">(1) Interventi di restauro; risanamento conservativo ristrutturazione e ampliamento al di fuori dei casi di cui all'art. 9 della Legge 10, nonché quelli di cui all'art. 7 Legge 94/82.</p>
 
     <!-- Calcolo Contributo Costo di Costruzione -->
-    <div class="mt-4" style="font-size: 1.5rem; font-weight: bold;">
+    <div id="costo-sezione-contributo" class="mt-4" style="font-size: 1.5rem; font-weight: bold;">
       <div class="d-flex align-items-center gap-3">
         <div class="flex-grow-1">
           <div class="d-flex align-items-center gap-2">
@@ -4774,39 +4841,39 @@ function generaCostoCostruzione() {
     </div>
 
     <!-- Calcolo degli Oneri di Urbanizzazione -->
-    <div class="mt-5" style="font-size: 1.5rem; font-weight: bold;">
-      <h4 class="mb-3" style="font-size: 1.5rem; font-weight: bold;"><strong>CALCOLO DEGLI ONERI DI URBANIZZAZIONE</strong></h4>
-      <div class="d-flex align-items-center gap-2 flex-wrap" style="font-size: 1.5rem; font-weight: bold;">
-        <div class="d-flex flex-column align-items-center">
-          <label class="mb-1"><strong>ONERI PRIMARI</strong></label>
-          <input type="text" id="oneri-primari-input" class="form-control text-center" value="0,00" style="background-color: #ffff00; font-weight: bold; width: 120px; font-size: 1.5rem;">
+    <div class="mt-5 oneri-urbanizzazione-sezione" id="costo-sezione-oneri">
+      <h4 class="mb-3 oneri-urbanizzazione-titolo"><strong>CALCOLO DEGLI ONERI DI URBANIZZAZIONE</strong></h4>
+      <div class="d-flex align-items-end gap-2 flex-wrap oneri-urbanizzazione-riga">
+        <div class="d-flex flex-column align-items-center oneri-cella">
+          <label class="mb-1 oneri-label"><strong>ONERI PRIMARI</strong></label>
+          <input type="text" id="oneri-primari-input" class="form-control text-center oneri-input" value="0,00" style="background-color: #ffff00; font-weight: bold;">
         </div>
-        <span class="mt-4" style="font-size: 1.5rem; font-weight: bold;">+</span>
-        <div class="d-flex flex-column align-items-center">
-          <label class="mb-1"><strong>ONERI SECONDARI</strong></label>
-          <input type="text" id="oneri-secondari-input" class="form-control text-center" value="0,00" style="background-color: #ffff00; font-weight: bold; width: 120px; font-size: 1.5rem;">
+        <div class="oneri-operator-cell"><span class="oneri-operator">+</span></div>
+        <div class="d-flex flex-column align-items-center oneri-cella">
+          <label class="mb-1 oneri-label"><strong>ONERI SECONDARI</strong></label>
+          <input type="text" id="oneri-secondari-input" class="form-control text-center oneri-input" value="0,00" style="background-color: #ffff00; font-weight: bold;">
         </div>
-        <span class="mt-4" style="font-size: 1.5rem; font-weight: bold;">+</span>
-        <div class="d-flex flex-column align-items-center">
-          <label class="mb-1"><strong>SMALTIMENTO RIFIUTI</strong></label>
-          <input type="text" id="smaltimento-rifiuti-input" class="form-control text-center" value="0,00" style="background-color: #ffff00; font-weight: bold; width: 120px; font-size: 1.5rem;">
+        <div class="oneri-operator-cell"><span class="oneri-operator">+</span></div>
+        <div class="d-flex flex-column align-items-center oneri-cella">
+          <label class="mb-1 oneri-label"><strong>RIFIUTI</strong></label>
+          <input type="text" id="smaltimento-rifiuti-input" class="form-control text-center oneri-input" value="0,00" style="background-color: #ffff00; font-weight: bold;">
         </div>
-        <span class="mt-4" style="font-size: 1.5rem; font-weight: bold;">=</span>
-        <div class="d-flex flex-column align-items-center">
-          <label class="mb-1"><strong>TOTALE</strong></label>
-          <div class="text-center" style="background-color: #90ee90; font-weight: bold; width: 120px; padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 1.5rem;">
+        <div class="oneri-operator-cell"><span class="oneri-operator">=</span></div>
+        <div class="d-flex flex-column align-items-center oneri-cella">
+          <label class="mb-1 oneri-label"><strong>TOTALE</strong></label>
+          <div class="text-center oneri-box-totale">
             <span id="oneri-totale-value">0,00</span>
           </div>
         </div>
-        <span class="mt-4" style="font-size: 1.5rem; font-weight: bold;">X</span>
-        <div class="d-flex flex-column align-items-center">
-          <label class="mb-1"><strong>VOLUME</strong></label>
-          <input type="text" id="volume-oneri-input" class="form-control text-center" value="0,00" style="background-color: #ffff00; font-weight: bold; width: 180px; font-size: 1.5rem;">
+        <div class="oneri-operator-cell"><span class="oneri-operator">X</span></div>
+        <div class="d-flex flex-column align-items-center oneri-cella oneri-cella-volume">
+          <label class="mb-1 oneri-label"><strong>VOLUME</strong></label>
+          <input type="text" id="volume-oneri-input" class="form-control text-center oneri-input oneri-input-volume" value="0,00" style="background-color: #ffff00; font-weight: bold;">
         </div>
-        <span class="mt-4" style="font-size: 1.5rem; font-weight: bold;">=</span>
-        <div class="d-flex flex-column align-items-center">
-          <label class="mb-1"><strong>TOTALE ONERI</strong></label>
-          <div class="text-center" style="background-color: #ffffff; font-weight: bold; width: 200px; padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 1.5rem;">
+        <div class="oneri-operator-cell"><span class="oneri-operator">=</span></div>
+        <div class="d-flex flex-column align-items-center oneri-cella oneri-cella-finale">
+          <label class="mb-1 oneri-label"><strong>TOTALE ONERI</strong></label>
+          <div class="text-center oneri-box-finale">
             <span id="totale-oneri-value">0,00</span> <strong>€</strong>
           </div>
         </div>
@@ -4814,7 +4881,7 @@ function generaCostoCostruzione() {
     </div>
 
     <!-- RIEPILOGO DEI COSTI -->
-    <div class="mt-5">
+    <div class="mt-5" id="costo-sezione-riepilogo">
       <h3 class="mb-3" style="font-size: 1.5rem; font-weight: bold; text-align: center;"><strong>RIEPILOGO DEI COSTI</strong></h3>
       <div class="table-responsive">
         <table class="table table-bordered" style="margin: 0 auto; max-width: 800px;">
@@ -4852,7 +4919,41 @@ function generaCostoCostruzione() {
   `;
 
   container.innerHTML = html;
-  
+
+  // Popola la sidebar delle sezioni e attiva lo scroll al click
+  const sezioniCosto = [
+    { id: 'costo-sezione-tabella-1', label: 'Tabella 1 - Superficie abitabile' },
+    { id: 'costo-sezione-tabella-2', label: 'Tabella 2 - Servizi e accessori' },
+    { id: 'costo-sezione-tabella-3', label: 'Tabella 3 - Incremento servizi (art.6)' },
+    { id: 'costo-sezione-superfici-residenziali', label: 'Superfici residenziali' },
+    { id: 'costo-sezione-tabella-4', label: 'Tabella 4 - Caratteristiche (art.7)' },
+    { id: 'costo-sezione-attivita-turistiche', label: 'Att. turistiche' },
+    { id: 'costo-sezione-art8', label: 'Art. 8 D.M.' },
+    { id: 'costo-sezione-totale-incrementi', label: 'Totale incrementi' },
+    { id: 'costo-sezione-calcolo-costo', label: 'Calcolo costo' },
+    { id: 'costo-sezione-percentuali', label: 'Percentuali contributo' },
+    { id: 'costo-sezione-contributo', label: 'Contributo' },
+    { id: 'costo-sezione-oneri', label: 'Oneri di urbanizzazione' },
+    { id: 'costo-sezione-riepilogo', label: 'Riepilogo costi' }
+  ];
+  const sidebarList = document.getElementById('sidebar-costo-costruzione-list');
+  if (sidebarList) {
+    sidebarList.innerHTML = sezioniCosto.map(s => {
+      if (s.id === 'costo-sezione-calcolo-costo') {
+        return `<a href="#${s.id}" class="list-group-item list-group-item-action sidebar-costo-sezione" data-section-id="${s.id}"><span class="d-flex justify-content-between align-items-baseline w-100"><span>${s.label}</span><span id="sidebar-calcolo-costo-valore">0,00</span></span></a>`;
+      }
+      return `<a href="#${s.id}" class="list-group-item list-group-item-action sidebar-costo-sezione" data-section-id="${s.id}">${s.label}</a>`;
+    }).join('');
+    sidebarList.addEventListener('click', (e) => {
+      const link = e.target.closest('.sidebar-costo-sezione');
+      if (!link) return;
+      e.preventDefault();
+      const id = link.getAttribute('data-section-id');
+      const el = document.getElementById(id);
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }
+
   // Funzione per formattare numeri con separatore migliaia (formato italiano: 1.234,56)
   const formatItalianNumberWithThousands = (num, decimals = 2) => {
     const fixed = num.toFixed(decimals);
@@ -5042,6 +5143,18 @@ function generaCostoCostruzione() {
     if (riepilogoTotale) {
       riepilogoTotale.textContent = formatItalianNumberWithThousands(totale);
     }
+
+    // Aggiorna il riepilogo in miniatura nella sidebar (elementi fuori da container)
+    const sidebarMiniContributo = document.getElementById('sidebar-mini-contributo');
+    const sidebarMiniPrimaria = document.getElementById('sidebar-mini-primaria');
+    const sidebarMiniSecondaria = document.getElementById('sidebar-mini-secondaria');
+    const sidebarMiniRifiuti = document.getElementById('sidebar-mini-rifiuti');
+    const sidebarMiniTotale = document.getElementById('sidebar-mini-totale');
+    if (sidebarMiniContributo) sidebarMiniContributo.textContent = formatItalianNumberWithThousands(contributo);
+    if (sidebarMiniPrimaria) sidebarMiniPrimaria.textContent = formatItalianNumberWithThousands(oneriPrimari);
+    if (sidebarMiniSecondaria) sidebarMiniSecondaria.textContent = formatItalianNumberWithThousands(oneriSecondari);
+    if (sidebarMiniRifiuti) sidebarMiniRifiuti.textContent = formatItalianNumberWithThousands(smaltimentoRifiuti);
+    if (sidebarMiniTotale) sidebarMiniTotale.textContent = formatItalianNumberWithThousands(totale);
   };
   
   // Calcola il totale incrementi e determina classe e maggiorazione
@@ -5152,15 +5265,16 @@ function generaCostoCostruzione() {
         if (corrisponde) {
           radio.disabled = false;
           radio.style.cursor = 'pointer';
+          // Solo la riga selezionabile resta con sfondo giallo (già impostato in HTML)
+          const cella = radio.closest('td');
+          if (cella) cella.style.backgroundColor = '#ffff00';
         } else {
           radio.disabled = true;
           radio.style.cursor = 'not-allowed';
           radio.checked = false;
-          // Resetta lo sfondo delle celle disabilitate al giallo
+          // Righe non selezionabili: sfondo neutro (no giallo)
           const cella = radio.closest('td');
-          if (cella) {
-            cella.style.backgroundColor = '#ffff00';
-          }
+          if (cella) cella.style.backgroundColor = '';
         }
       });
       
@@ -5316,12 +5430,20 @@ function generaCostoCostruzione() {
     }
   };
   
+  // Aggiorna il valore "Costo mq" sulla riga "Calcolo costo" nella sidebar (solo il numero, es. 493,34)
+  const aggiornaSidebarCostoMq = () => {
+    const input = container.querySelector('#costo-mq-input');
+    const sidebarEl = document.getElementById('sidebar-calcolo-costo-valore');
+    if (input && sidebarEl) sidebarEl.textContent = input.value || '0,00';
+  };
+
   // Aggiungi event listener per l'input del costo a mq
   const costoMqInput = container.querySelector('#costo-mq-input');
   if (costoMqInput) {
     costoMqInput.addEventListener('input', () => {
       calcolaCostoCostruzione();
       salvaDatiCostoCostruzione();
+      aggiornaSidebarCostoMq();
     });
     costoMqInput.addEventListener('blur', function() {
       // Formatta il valore quando perde il focus
@@ -5329,11 +5451,13 @@ function generaCostoCostruzione() {
       this.value = formatItalianNumber(valore);
       calcolaCostoCostruzione();
       salvaDatiCostoCostruzione();
+      aggiornaSidebarCostoMq();
     });
   }
-  
+
   // Carica i dati salvati (dopo aver impostato gli event listener)
   caricaDatiCostoCostruzione();
+  aggiornaSidebarCostoMq();
   
   // Imposta il valore iniziale (default 0) solo se non c'è un valore salvato
   if (inc3Value && (!dataModel.costoCostruzione || !dataModel.costoCostruzione.inc3)) {
@@ -5353,6 +5477,7 @@ function generaCostoCostruzione() {
     calcolaContributoCostoCostruzione();
     calcolaOneriUrbanizzazione();
     aggiornaRiepilogoCosti();
+    aggiornaSidebarCostoMq();
   }, 100);
   
   // Funzione per calcolare gli oneri di urbanizzazione
@@ -7016,6 +7141,8 @@ function apriModalEdificio(edificioId = null) {
       title.textContent = 'Modifica Edificio';
       document.getElementById('input-nome-edificio').value = edificio.nome;
       document.getElementById('input-indirizzo-edificio').value = edificio.indirizzo || '';
+      const inputNumero = document.getElementById('input-numero-edificio');
+      if (inputNumero) inputNumero.value = edificio.numero != null && edificio.numero !== '' ? edificio.numero : '';
       form.dataset.edificioId = edificioId;
     }
   } else {
@@ -7124,13 +7251,15 @@ function setupForm() {
     const form = e.target;
     const nome = document.getElementById('input-nome-edificio').value;
     const indirizzo = document.getElementById('input-indirizzo-edificio').value;
+    const numeroRaw = document.getElementById('input-numero-edificio')?.value;
+    const numero = numeroRaw === '' || numeroRaw == null ? null : (parseInt(numeroRaw, 10) || null);
     let edificioCreato = null;
     let edificioIdCorrente = form.dataset.edificioId || null;
 
     if (form.dataset.edificioId) {
-      dataModel.modificaEdificio(form.dataset.edificioId, nome, indirizzo);
+      dataModel.modificaEdificio(form.dataset.edificioId, nome, indirizzo, numero);
     } else {
-      const nuovoEdificio = dataModel.aggiungiEdificio(nome, indirizzo);
+      const nuovoEdificio = dataModel.aggiungiEdificio(nome, indirizzo, numero);
       edificioCreato = nuovoEdificio;
       edificioIdCorrente = nuovoEdificio.id;
       edificioDaEvidenziare = nuovoEdificio.id;

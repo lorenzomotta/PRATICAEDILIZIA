@@ -163,7 +163,24 @@
         <div class="d-flex justify-content-between align-items-center mb-4">
           <h2 class="text-primary">Costo di Costruzione</h2>
         </div>
-        <div id="costo-costruzione-content" class="card shadow-sm p-4"></div>
+        <div class="d-flex gap-3 flex-nowrap">
+          <aside id="sidebar-costo-costruzione" class="costo-costruzione-sidebar card shadow-sm flex-shrink-0">
+            <div class="card-header py-2">
+              <strong>Sezioni</strong>
+            </div>
+            <div id="sidebar-costo-costruzione-list" class="list-group list-group-flush list-group-sm overflow-auto" style="max-height: 70vh;"></div>
+            <div id="sidebar-mini-riepilogo" class="sidebar-mini-riepilogo card-footer small border-top py-2 px-2">
+              <div class="d-flex justify-content-between align-items-baseline"><span>Contributo:</span> <span class="sidebar-mini-valore"><span id="sidebar-mini-contributo">0,00</span> €</span></div>
+              <div class="d-flex justify-content-between align-items-baseline"><span>Primaria:</span> <span class="sidebar-mini-valore"><span id="sidebar-mini-primaria">0,00</span> €</span></div>
+              <div class="d-flex justify-content-between align-items-baseline"><span>Secondaria:</span> <span class="sidebar-mini-valore"><span id="sidebar-mini-secondaria">0,00</span> €</span></div>
+              <div class="d-flex justify-content-between align-items-baseline"><span>Rifiuti:</span> <span class="sidebar-mini-valore"><span id="sidebar-mini-rifiuti">0,00</span> €</span></div>
+              <div class="d-flex justify-content-between align-items-baseline fw-bold mt-1"><span>Totale:</span> <span class="sidebar-mini-valore"><span id="sidebar-mini-totale">0,00</span> €</span></div>
+            </div>
+          </aside>
+          <div class="flex-grow-1 min-w-0">
+            <div id="costo-costruzione-content" class="card shadow-sm p-4"></div>
+          </div>
+        </div>
       </div>
     </main>
   </div>
@@ -185,6 +202,10 @@
             <div class="mb-3">
               <label for="input-indirizzo-edificio" class="form-label">Indirizzo</label>
               <input type="text" id="input-indirizzo-edificio" class="form-control">
+            </div>
+            <div class="mb-3">
+              <label for="input-numero-edificio" class="form-label">Numero</label>
+              <input type="number" id="input-numero-edificio" class="form-control" min="0" step="1" placeholder="Ordine di visualizzazione">
             </div>
           </div>
           <div class="modal-footer">

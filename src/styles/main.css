@@ -236,6 +236,44 @@ body {
   background-color: rgba(255, 255, 255, 0.35);
 }
 
+/* Sidebar vista Costo di Costruzione */
+.costo-costruzione-sidebar {
+  width: 220px;
+  flex-shrink: 0;
+  position: sticky;
+  top: 1rem;
+  align-self: flex-start;
+}
+
+.costo-costruzione-sidebar .list-group-item {
+  font-size: 13px;
+  padding: 8px 12px;
+  border-left: 3px solid transparent;
+}
+
+.costo-costruzione-sidebar .list-group-item:hover {
+  background-color: #f8f9fa;
+}
+
+.costo-costruzione-sidebar .list-group-item:focus {
+  z-index: 0;
+}
+
+.sidebar-mini-riepilogo {
+  font-size: 12px;
+  background-color: #f8f9fa;
+}
+
+.sidebar-mini-riepilogo .sidebar-mini-valore {
+  min-width: 5rem;
+  text-align: right;
+}
+
+.sidebar-mini-riepilogo .fw-bold {
+  border-top: 1px solid #dee2e6;
+  padding-top: 4px;
+}
+
 @media (max-width: 992px) {
   .gestione-edifici-layout {
     flex-direction: column;

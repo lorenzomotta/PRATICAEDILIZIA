@@ -74,11 +74,12 @@ export class DataModel {
   }
 
   // Gestione Edifici
-  aggiungiEdificio(nome, indirizzo = '') {
+  aggiungiEdificio(nome, indirizzo = '', numero = null) {
     const edificio = {
       id: this.generateId(),
       nome: nome,
       indirizzo: indirizzo,
+      numero: numero != null && numero !== '' ? Number(numero) : null,
       piani: [],
       createdAt: new Date().toISOString()
     };
@@ -142,11 +143,12 @@ export class DataModel {
     return this.edifici.find(e => e.id === id);
   }
 
-  modificaEdificio(id, nome, indirizzo) {
+  modificaEdificio(id, nome, indirizzo, numero = null) {
     const edificio = this.getEdificio(id);
     if (edificio) {
       edificio.nome = nome;
       edificio.indirizzo = indirizzo;
+      edificio.numero = numero != null && numero !== '' ? Number(numero) : null;
       this.saveToStorage();
       return edificio;
     }
@@ -367,10 +369,12 @@ export class DataModel {
     this.saveToStorage();
   }
 
-  // Ottieni tutti gli edifici (ordinati per nome in ordine crescente)
+  // Ottieni tutti gli edifici (ordinati per NUMERO crescente, poi per nome)
   getAllEdifici() {
-    // Ordina gli edifici per nome in ordine crescente (alfabetico)
     return [...this.edifici].sort((a, b) => {
+      const numA = a.numero != null && a.numero !== '' ? Number(a.numero) : Infinity;
+      const numB = b.numero != null && b.numero !== '' ? Number(b.numero) : Infinity;
+      if (numA !== numB) return numA - numB;
       const nomeA = (a.nome || '').toLowerCase().trim();
       const nomeB = (b.nome || '').toLowerCase().trim();
       return nomeA.localeCompare(nomeB, 'it', { sensitivity: 'base' });
