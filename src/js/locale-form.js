@@ -114,6 +114,30 @@ export function caricaFormLocale(edificioId, pianoId, localeId) {
           <select id="locale-tipologia" class="form-select"></select>
         </div>
       </div>
+
+      <div class="row mb-3 g-2 align-items-center border rounded p-3 bg-light">
+        <div class="col-auto">
+          <span class="form-label d-block mb-1">Costo di costruzione / Report</span>
+          <div class="form-check form-check-inline">
+            <input class="form-check-input" type="checkbox" id="locale-partecipa-prima" ${locale ? (locale.partecipaPrima !== false ? 'checked' : '') : ''}>
+            <label class="form-check-label" for="locale-partecipa-prima">PRIMA</label>
+          </div>
+          <div class="form-check form-check-inline">
+            <input class="form-check-input" type="checkbox" id="locale-partecipa-dopo" ${locale ? (locale.partecipaDopo !== false ? 'checked' : '') : 'checked'}>
+            <label class="form-check-label" for="locale-partecipa-dopo">DOPO</label>
+          </div>
+        </div>
+        ${localeId ? `
+        <div class="col-auto">
+          <button type="button" id="btn-crea-versione-dopo" class="btn btn-outline-primary btn-sm btn-crea-versione-dopo" title="Toglie DOPO da questa riga e crea una copia solo DOPO da modificare">
+            Crea versione DOPO
+          </button>
+        </div>
+        ` : ''}
+        <div class="col-12">
+          <small class="text-muted">I rapporti mostrano solo i locali DOPO. Per una modifica importante: usa &quot;Crea versione DOPO&quot; (riga vecchia solo PRIMA, nuova riga solo DOPO).</small>
+        </div>
+      </div>
       
       <div class="border border-primary rounded p-3 mb-3">
         <h5 class="text-primary mb-3">Superficie Locale</h5>
@@ -266,6 +290,47 @@ export function caricaFormLocale(edificioId, pianoId, localeId) {
 function setupFormLocaleListeners() {
   const form = document.getElementById('form-locale');
   if (!form) return;
+
+  const btnCreaVersioneDopo = document.getElementById('btn-crea-versione-dopo');
+  if (btnCreaVersioneDopo) {
+    btnCreaVersioneDopo.addEventListener('click', async (e) => {
+      e.preventDefault();
+      const edificioId = document.getElementById('locale-edificio-id')?.value;
+      const pianoId = document.getElementById('locale-piano-id')?.value;
+      const localeId = document.getElementById('locale-id')?.value;
+      const dataModel = getDataModel();
+      if (!dataModel || !edificioId || !pianoId || !localeId) return;
+
+      const conferma = confirm(
+        'Creare la versione DOPO?\n\n' +
+        '• Questa riga resterà solo PRIMA (valori attuali)\n' +
+        '• Verrà aggiunta una nuova riga solo DOPO da modificare'
+      );
+      if (!conferma) return;
+
+      const nuovoLocale = dataModel.creaVersioneDopoLocale(edificioId, pianoId, localeId);
+      if (!nuovoLocale) {
+        alert('Impossibile creare la versione DOPO (locale non trovato o già senza DOPO).');
+        return;
+      }
+
+      if (window.aggiornaListaLocali) window.aggiornaListaLocali();
+      if (window.aggiornaVistaLocali) window.aggiornaVistaLocali();
+      if (window.aggiornaVistaEdifici) window.aggiornaVistaEdifici();
+      if (window.rifrescaVisteCosto) window.rifrescaVisteCosto();
+
+      const modalElement = document.getElementById('modal-locale');
+      const modal = bootstrap.Modal.getInstance(modalElement);
+      if (modal) modal.hide();
+
+      setTimeout(() => {
+        if (window.apriModalLocale) {
+          window.apriModalLocale(edificioId, pianoId, nuovoLocale.id);
+        }
+      }, 200);
+    });
+  }
+
   const annullaBtn = document.getElementById('btn-annulla-locale');
   if (annullaBtn) {
     annullaBtn.addEventListener('click', async (e) => {
@@ -959,13 +1024,20 @@ function salvaLocale() {
     }
   });
   
+  const partecipaPrimaEl = document.getElementById('locale-partecipa-prima');
+  const partecipaDopoEl = document.getElementById('locale-partecipa-dopo');
+  const partecipaPrima = partecipaPrimaEl ? partecipaPrimaEl.checked : false;
+  const partecipaDopo = partecipaDopoEl ? partecipaDopoEl.checked : true;
+
   const datiLocale = {
     nome: nome,
     tipologiaSuperficie: tipologia,
     rapportoRichiesto: rapportoRichiesto,
     specificaSuperficie: specifica,
     superficieUtile: superficieUtile,
-    aperture: aperture
+    aperture: aperture,
+    partecipaPrima,
+    partecipaDopo
   };
   
   if (localeId) {
@@ -984,6 +1056,7 @@ function salvaLocale() {
       if (window.aggiornaListaLocali) window.aggiornaListaLocali();
       if (window.aggiornaVistaLocali) window.aggiornaVistaLocali();
       if (window.aggiornaVistaEdifici) window.aggiornaVistaEdifici();
+      if (window.rifrescaVisteCosto) window.rifrescaVisteCosto();
       
       // Ripristina la vista originale se era stata salvata
       if (window.statoApp && window.statoApp.vistaPrimaDelModal) {

@@ -10,6 +10,14 @@ import {
   verificaRapporto
 } from './calcoli.js';
 import { caricaFormLocale, registerLocaleFormDataModel } from './locale-form.js';
+import { initReportCombobox } from './report-filtri.js';
+import {
+  localeInScenario,
+  localePartecipaDopo,
+  badgeScenarioLocaleHtml,
+  filtraLocaliPerScenario,
+  normalizeAllLocalesInEdifici
+} from './locale-scenario.js';
 
 let tauriDialog = null;
 let tauriFs = null;
@@ -110,10 +118,15 @@ function initToasts() {
 // Stato dell'applicazione
 let statoApp = {
   vistaCorrente: 'edifici',
+  costoMetriche: {},
+  costoScenario: 'dopo',
+  riepilogoSuperficiScenario: 'dopo',
+  riepilogoSuperficiNonResidenzialiScenario: 'dopo',
   edificioSelezionato: null,
   pianoSelezionato: null,
   localeSelezionato: null,
   collapsedEdifici: {},
+  collapsedPiani: {}, // Formato: { "edificioId-pianoId": true/false }
   vistaPrimaDelModal: null
 };
 let edificioDaEvidenziare = null;
@@ -951,6 +964,7 @@ async function applyImportedData(contents) {
 
   isLoadingFromFile = true;
   dataModel.edifici = edificiImportati;
+  normalizeAllLocalesInEdifici(dataModel.edifici);
   // Se ci sono dati di costoCostruzione importati, sovrascrivi sempre
   if (costoCostruzioneImportato !== null && costoCostruzioneImportato !== undefined) {
     dataModel.costoCostruzione = costoCostruzioneImportato;
@@ -978,8 +992,13 @@ async function applyImportedData(contents) {
   
   // Aggiorna anche la vista "Costo di Costruzione" se è quella corrente
   // o se ci sono dati di costoCostruzione importati
-  if (statoApp.vistaCorrente === 'costo-costruzione' || costoCostruzioneImportato) {
-    generaCostoCostruzione();
+  const vCosto = statoApp.vistaCorrente;
+  if (vCosto === 'costo' || vCosto === 'confronto' || vCosto === 'costo-prima' || vCosto === 'costo-dopo' || vCosto === 'costo-costruzione' || costoCostruzioneImportato) {
+    if (vCosto === 'confronto' || vCosto === 'costo-dopo') {
+      generaVistaConfrontoCosto();
+    } else {
+      generaCostoCostruzione();
+    }
   }
   
   // Aggiorna i riepiloghi superfici se sono la vista corrente
@@ -1166,7 +1185,29 @@ function setupEventDelegation() {
         e.preventDefault();
         e.stopPropagation();
         const id = target.dataset.edificioId;
+        const wasCollapsed = !!statoApp.collapsedEdifici[id];
         statoApp.collapsedEdifici[id] = !statoApp.collapsedEdifici[id];
+        // Se l'edificio viene aperto, espandi tutti i suoi piani di default
+        if (wasCollapsed && !statoApp.collapsedEdifici[id]) {
+          const edificio = dataModel.getEdificio(id);
+          if (edificio) {
+            edificio.piani.forEach(piano => {
+              const pianoKey = `${id}-${piano.id}`;
+              statoApp.collapsedPiani[pianoKey] = false;
+            });
+          }
+        }
+        aggiornaVistaEdifici();
+        return;
+      }
+      // Gestione bottoni piani
+      if (target.classList.contains('btn-toggle-piano')) {
+        e.preventDefault();
+        e.stopPropagation();
+        const edificioId = target.dataset.edificioId;
+        const pianoId = target.dataset.pianoId;
+        const pianoKey = `${edificioId}-${pianoId}`;
+        statoApp.collapsedPiani[pianoKey] = !statoApp.collapsedPiani[pianoKey];
         aggiornaVistaEdifici();
         return;
       }
@@ -1459,13 +1500,20 @@ function setupNavigazione() {
   if (btnRiepilogoSuperfici) {
     btnRiepilogoSuperfici.addEventListener('click', () => mostraVista('riepilogo-superfici'));
   }
+  setupRiepilogoSuperficiScenarioButtons();
+  setupRiepilogoSuperficiNonResidenzialiScenarioButtons();
   const btnRiepilogoSuperficiNonResidenziali = document.getElementById('btn-riepilogo-superfici-non-residenziali');
   if (btnRiepilogoSuperficiNonResidenziali) {
     btnRiepilogoSuperficiNonResidenziali.addEventListener('click', () => mostraVista('riepilogo-superfici-non-residenziali'));
   }
-  const btnCostoCostruzione = document.getElementById('btn-costo-costruzione');
-  if (btnCostoCostruzione) {
-    btnCostoCostruzione.addEventListener('click', () => mostraVista('costo-costruzione'));
+  setupCostoScenarioButtons();
+  const btnCosto = document.getElementById('btn-costo');
+  if (btnCosto) {
+    btnCosto.addEventListener('click', () => mostraVista('costo'));
+  }
+  const btnConfronto = document.getElementById('btn-confronto');
+  if (btnConfronto) {
+    btnConfronto.addEventListener('click', () => mostraVista('confronto'));
   }
   if (btnNuovoEdificio) {
     btnNuovoEdificio.addEventListener('click', () => apriModalEdificio());
@@ -1586,7 +1634,7 @@ function setupNavigazione() {
   if (menuCostoCostruzione) {
     menuCostoCostruzione.addEventListener('click', (e) => {
       e.preventDefault();
-      mostraVista('costo-costruzione');
+      mostraVista('confronto');
     });
   }
 }
@@ -2233,6 +2281,16 @@ function convertMarkdownToHtml(markdown) {
 }
 
 function mostraVista(nomeVista) {
+  if (nomeVista === 'costo-prima') {
+    statoApp.costoScenario = 'prima';
+    nomeVista = 'costo';
+  } else if (nomeVista === 'costo-dopo') {
+    nomeVista = 'confronto';
+  } else if (nomeVista === 'costo-costruzione') {
+    statoApp.costoScenario = 'dopo';
+    nomeVista = 'costo';
+  }
+
   // Nascondi tutte le viste
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   document.querySelectorAll('.navbar .btn').forEach(b => {
@@ -2278,9 +2336,7 @@ function mostraVista(nomeVista) {
     case 'report':
       aggiornaVistaReport();
       // Genera automaticamente il report di tutti gli edifici
-      // azzera l'eventuale selezione specifica
-      const sel = document.getElementById('select-edificio-report');
-      if (sel) sel.value = '';
+      resetFiltriReport();
       generaReport();
       break;
     case 'riepilogo-superfici':
@@ -2294,8 +2350,11 @@ function mostraVista(nomeVista) {
         window.aggiornaVistaAggetti();
       }
       break;
-    case 'costo-costruzione':
+    case 'costo':
       generaCostoCostruzione();
+      break;
+    case 'confronto':
+      generaVistaConfrontoCosto();
       break;
   }
 }
@@ -2349,6 +2408,10 @@ function aggiornaVistaEdifici() {
       ? edificio.piani.map(piano => {
           const numLocaliPiano = piano.locali.length;
           const labelLocaliPiano = numLocaliPiano === 1 ? 'locale' : 'locali';
+          const pianoKey = `${edificio.id}-${piano.id}`;
+          // Se l'edificio è collassato o se non è stato ancora impostato, usa false (espanso) come default quando l'edificio è aperto
+          const isPianoCollapsed = isCollapsed ? true : (statoApp.collapsedPiani[pianoKey] === true);
+          
           const localiHtml = piano.locali.length > 0
             ? piano.locali.map(locale => {
                 const superficie = formatItalianNumber(locale.superficieUtile || 0);
@@ -2384,7 +2447,7 @@ function aggiornaVistaEdifici() {
                           X
                         </button>
                       </div>
-                      <div>
+                      <div class="locale-header-body">
                         <strong>${locale.nome || 'Locale senza nome'}</strong>
                         <span class="text-muted ms-2">
                           ${locale.tipologiaSuperficie || 'N/A'} | 
@@ -2392,16 +2455,20 @@ function aggiornaVistaEdifici() {
                           ${numApertureLocale} ${labelAperture}
                         </span>
                       </div>
+                      <span class="locale-scenario-badges locale-scenario-badges-edifici">${badgeScenarioLocaleHtml(locale)}</span>
                     </div>
                   </div>
                 `;
               }).join('')
             : '<div class="ms-4 text-muted fst-italic">Nessun locale presente</div>';
           
+          const localiHtmlContent = isPianoCollapsed ? '' : localiHtml;
+          
           return `
             <div class="piano-nested">
               <div class="piano-header">
                 <div class="piano-actions">
+                  <button class="btn btn-outline-secondary btn-sm btn-toggle-piano" data-edificio-id="${edificio.id}" data-piano-id="${piano.id}" title="${isPianoCollapsed ? 'Apri' : 'Chiudi'} piano">${isPianoCollapsed ? '▸' : '▾'}</button>
                   <button class="btn btn-icon-green btn-circle btn-circle-sm btn-aggiungi-locale" data-edificio-id="${edificio.id}" data-piano-id="${piano.id}" aria-label="Aggiungi locale" title="Aggiungi locale">+</button>
                   <button class="btn btn-icon-orange btn-circle btn-circle-sm btn-modifica-piano" data-edificio-id="${edificio.id}" data-piano-id="${piano.id}" aria-label="Modifica piano" title="Modifica piano">M</button>
                   <button class="btn btn-icon-dark btn-circle btn-circle-sm btn-elimina-piano" data-edificio-id="${edificio.id}" data-piano-id="${piano.id}" aria-label="Elimina piano" title="Elimina piano">X</button>
@@ -2411,7 +2478,7 @@ function aggiornaVistaEdifici() {
                   <span class="text-muted ms-2">${numLocaliPiano} ${labelLocaliPiano}</span>
                 </div>
               </div>
-              ${localiHtml}
+              ${localiHtmlContent}
             </div>
           `;
         }).join('')
@@ -2652,7 +2719,10 @@ function aggiornaListaLocali() {
     return `
         <div class="locali-item locale-row-clickable" data-edificio-id="${edificioId}" data-piano-id="${pianoId}" data-locale-id="${locale.id}" title="Doppio click per modificare">
           <div class="locali-item-info">
-            <div class="locali-item-title">${locale.nome || 'Locale senza nome'}</div>
+            <div class="locali-item-title-row">
+              <span class="locali-item-title">${locale.nome || 'Locale senza nome'}</span>
+              <span class="locale-scenario-badges">${badgeScenarioLocaleHtml(locale)}</span>
+            </div>
             <div class="locali-item-subtitle" style="font-size: 16px;">
             Tipologia: ${locale.tipologiaSuperficie || 'Non specificata'} | 
             Superficie: ${superficie} m²${esplicazioneSuperficie}${infoAperture}
@@ -2715,14 +2785,150 @@ function aggiornaListaLocali() {
   });
 }
 
-// Vista Report
-function aggiornaVistaReport() {
-  const selectEdificio = document.getElementById('select-edificio-report');
-  const edifici = dataModel.getAllEdifici();
-  
-  selectEdificio.innerHTML = '<option value="">Tutti gli edifici</option>' +
-    edifici.map(e => `<option value="${e.id}">${e.nome}</option>`).join('');
+// Vista Report — combobox con checkbox
+let reportCbEdifici = null;
+let reportCbPiani = null;
+let reportCbLocali = null;
 
+function getEdificiPerScopeFiltro(edificioIds) {
+  const tutti = dataModel.getAllEdifici();
+  if (!edificioIds || edificioIds.length === 0) return tutti;
+  return tutti.filter((e) => edificioIds.includes(e.id));
+}
+
+function raccogliVociEdificiReport() {
+  return dataModel.getAllEdifici().map((e) => ({
+    id: e.id,
+    label: e.nome || 'Edificio senza nome'
+  }));
+}
+
+function raccogliVociPianiReport(edificioIds) {
+  const edifici = getEdificiPerScopeFiltro(edificioIds);
+  const voci = [];
+  const prefissoEdificio = edificioIds.length === 0 && edifici.length > 1;
+  edifici.forEach((edificio) => {
+    const piani = Array.isArray(edificio.piani) ? edificio.piani : [];
+    piani.forEach((piano) => {
+      const nomePiano = piano.nome || 'Piano';
+      const label = prefissoEdificio || edificioIds.length > 1
+        ? `${edificio.nome} — ${nomePiano}`
+        : nomePiano;
+      voci.push({ id: piano.id, label });
+    });
+  });
+  return voci;
+}
+
+function raccogliVociLocaliReport(edificioIds, pianoIds) {
+  const edifici = getEdificiPerScopeFiltro(edificioIds);
+  const voci = [];
+  const mostraEdificio = edificioIds.length === 0 ? edifici.length > 1 : edificioIds.length > 1;
+  edifici.forEach((edificio) => {
+    let piani = Array.isArray(edificio.piani) ? edificio.piani : [];
+    if (pianoIds.length > 0) {
+      piani = piani.filter((p) => pianoIds.includes(p.id));
+    }
+    const piuPiani = pianoIds.length === 0 ? piani.length > 1 : pianoIds.length > 1;
+    piani.forEach((piano) => {
+      const locali = Array.isArray(piano.locali) ? piano.locali : [];
+      const nomePiano = piano.nome || 'Piano';
+      const localiDopo = filtraLocaliPerScenario(locali, 'dopo');
+      localiDopo.forEach((locale) => {
+        const nomeLocale = locale.nome || 'Locale senza nome';
+        let label = nomeLocale;
+        if (mostraEdificio && piuPiani) {
+          label = `${edificio.nome} — ${nomePiano} — ${nomeLocale}`;
+        } else if (mostraEdificio) {
+          label = `${edificio.nome} — ${nomeLocale}`;
+        } else if (piuPiani) {
+          label = `${nomePiano} — ${nomeLocale}`;
+        }
+        voci.push({ id: locale.id, label });
+      });
+    });
+  });
+  return voci;
+}
+
+function setupReportFiltriCombobox() {
+  if (reportCbEdifici) {
+    aggiornaComboboxEdificiReport();
+    aggiornaComboboxPianiReport();
+    aggiornaComboboxLocaliReport();
+    return;
+  }
+
+  reportCbEdifici = initReportCombobox('report-cb-edifici', {
+    labelTutti: 'Tutti gli edifici',
+    labelVuoto: 'Nessun edificio',
+    onChange: () => {
+      aggiornaComboboxPianiReport();
+      aggiornaComboboxLocaliReport();
+    }
+  });
+  reportCbPiani = initReportCombobox('report-cb-piani', {
+    labelTutti: 'Tutti i piani',
+    labelVuoto: 'Nessun piano',
+    onChange: () => {
+      aggiornaComboboxLocaliReport();
+    }
+  });
+  reportCbLocali = initReportCombobox('report-cb-locali', {
+    labelTutti: 'Tutti i locali',
+    labelVuoto: 'Nessun locale',
+    onChange: () => {}
+  });
+
+  if (!reportCbEdifici || !reportCbPiani || !reportCbLocali) {
+    console.error('Filtri report: inizializzazione combobox non riuscita');
+    return;
+  }
+
+  aggiornaComboboxEdificiReport();
+  aggiornaComboboxPianiReport();
+  aggiornaComboboxLocaliReport();
+}
+
+function resetFiltriReport() {
+  reportCbEdifici?.clearSelection();
+  reportCbPiani?.clearSelection();
+  reportCbLocali?.clearSelection();
+  aggiornaComboboxPianiReport();
+  aggiornaComboboxLocaliReport();
+}
+
+function getFiltriReport() {
+  return {
+    edificioIds: reportCbEdifici?.getSelectedIds() || [],
+    pianoIds: reportCbPiani?.getSelectedIds() || [],
+    localeIds: reportCbLocali?.getSelectedIds() || []
+  };
+}
+
+function aggiornaComboboxEdificiReport() {
+  if (!reportCbEdifici) return;
+  reportCbEdifici.setItems(raccogliVociEdificiReport(), true);
+}
+
+function aggiornaComboboxPianiReport() {
+  if (!reportCbPiani) return;
+  const edificioIds = reportCbEdifici?.getSelectedIds() || [];
+  reportCbPiani.setItems(raccogliVociPianiReport(edificioIds), true);
+}
+
+function aggiornaComboboxLocaliReport() {
+  if (!reportCbLocali) return;
+  const edificioIds = reportCbEdifici?.getSelectedIds() || [];
+  const pianoIds = reportCbPiani?.getSelectedIds() || [];
+  reportCbLocali.setItems(raccogliVociLocaliReport(edificioIds, pianoIds), true);
+}
+
+function aggiornaVistaReport() {
+  setupReportFiltriCombobox();
+  aggiornaComboboxEdificiReport();
+  aggiornaComboboxPianiReport();
+  aggiornaComboboxLocaliReport();
   ensureReportPrintUI();
 }
 
@@ -2760,7 +2966,8 @@ function ensureReportScreenStyles() {
     #report-content .report-table col.w-l { width: 4%; }
     #report-content .report-table col.w-l2 { width: 5%; }
     #report-content .report-table col.w-imp { width: 4%; }
-    #report-content .report-table col.w-dim { width: 9%; }
+    #report-content .report-table col.w-hd { width: 4%; }
+    #report-content .report-table col.w-dim { width: 8%; }
     #report-content .report-table col.w-formula { width: 13%; }
     #report-content .report-table col.w-supfin { width: 4%; }
     #report-content .report-table col.w-tot { width: 4%; }
@@ -2876,7 +3083,8 @@ function injectPrintStyles() {
         #report-content .w-l { width: 4%; }
         #report-content .w-l2 { width: 5%; }
         #report-content .w-imp { width: 4%; }
-        #report-content .w-dim { width: 9%; }
+        #report-content .w-hd { width: 4%; }
+        #report-content .w-dim { width: 8%; }
         #report-content .w-formula { width: 13%; }
         #report-content .w-supfin { width: 4%; }
         #report-content .w-tot { width: 4%; }
@@ -2913,7 +3121,8 @@ function buildPrintHtml(inner) {
     .w-l { width: 4%; }
     .w-l2 { width: 5%; }
     .w-imp { width: 4%; }
-    .w-dim { width: 9%; }
+    .w-hd { width: 4%; }
+    .w-dim { width: 8%; }
     .w-formula { width: 13%; }
     .w-supfin { width: 4%; }
     .w-tot { width: 4%; }
@@ -2963,19 +3172,33 @@ function aggiornaSidebarEdifici(edifici) {
 }
 
 function generaReport(idsOverride = null) {
-  const edificioId = document.getElementById('select-edificio-report')?.value;
   const container = document.getElementById('report-content');
+  const usaFiltriUi = !Array.isArray(idsOverride);
+  const { edificioIds, pianoIds, localeIds } = usaFiltriUi
+    ? getFiltriReport()
+    : { edificioIds: [], pianoIds: [], localeIds: [] };
   
   let edificiDaReportare = [];
   
   if (Array.isArray(idsOverride)) {
-    edificiDaReportare = dataModel.getAllEdifici().filter(e => idsOverride.includes(e.id));
-  } else if (edificioId) {
-    const edificio = dataModel.getEdificio(edificioId);
-    if (edificio) edificiDaReportare = [edificio];
+    edificiDaReportare = dataModel.getAllEdifici().filter((e) => idsOverride.includes(e.id));
+  } else if (usaFiltriUi && edificioIds.length > 0) {
+    edificiDaReportare = dataModel.getAllEdifici().filter((e) => edificioIds.includes(e.id));
   } else {
     edificiDaReportare = dataModel.getAllEdifici();
   }
+
+  const filtraPiani = (piani) => {
+    const lista = Array.isArray(piani) ? piani : [];
+    if (!usaFiltriUi || pianoIds.length === 0) return lista;
+    return lista.filter((p) => pianoIds.includes(p.id));
+  };
+
+  const filtraLocali = (locali) => {
+    const lista = filtraLocaliPerScenario(locali, 'dopo');
+    if (!usaFiltriUi || localeIds.length === 0) return lista;
+    return lista.filter((l) => localeIds.includes(l.id));
+  };
   
   if (edificiDaReportare.length === 0) {
     container.innerHTML = '<div class="card-body text-center text-muted p-5">Nessun edificio presente.</div>';
@@ -2985,9 +3208,9 @@ function generaReport(idsOverride = null) {
   // Raccogli tutte le aperture con sporgenza > 1.20 per la numerazione N°AGG
   const aperturePerNumerazione = [];
   edificiDaReportare.forEach(edificio => {
-    const piani = Array.isArray(edificio.piani) ? edificio.piani : [];
+    const piani = filtraPiani(edificio.piani);
     piani.forEach(piano => {
-      const locali = Array.isArray(piano?.locali) ? piano.locali : [];
+      const locali = filtraLocali(piano?.locali);
       locali.forEach(locale => {
         let aperture = [];
         if (Array.isArray(locale.aperture)) {
@@ -3059,18 +3282,22 @@ function generaReport(idsOverride = null) {
     html += `<div class="mb-4">`;
     html += `<h3 class="text-primary border-bottom pb-2 mb-3">Edificio: ${escapeHtml(edificio.nome)}</h3>`;
     
-    const piani = Array.isArray(edificio.piani) ? edificio.piani : [];
+    const piani = filtraPiani(edificio.piani);
     if (piani.length === 0) {
       html += '<p class="text-muted">Nessun piano presente.</p>';
     } else {
       piani.forEach(piano => {
+        const locali = filtraLocali(piano?.locali);
+        if (usaFiltriUi && localeIds.length > 0 && locali.length === 0) {
+          return;
+        }
+
         html += `<h4 class="mt-4 mb-3" style="color: #0052a3;">Piano: ${escapeHtml(piano?.nome || '')}</h4>`;
         
           html += `<div class="table-responsive">`;
         html += `<table class="table table-hover report-table text-center">
-          <colgroup>\n            <col class=\"w-unita col-unita\">\n            <col class=\"w-piano col-piano\">\n            <col class=\"w-locale\">\n            <col class=\"w-tipologia\">\n            <col class=\"w-specifica col-specifica\">\n            <col class=\"w-suplocale\">\n            <col class=\"w-l\">\n            <col class=\"w-l2\">\n            <col class=\"w-imp\">\n            <col class=\"w-nagg\">\n            <col class=\"w-dim\">\n            <col class=\"w-formula th-formula\">\n            <col class=\"w-supfin\">\n            <col class=\"w-tot\">\n            <col class=\"w-rapporto\">\n          </colgroup>\n          <thead class=\"table-primary\">\n            <tr>\n              <th class=\"col-unita\">UNITÀ</th>\n              <th class=\"col-piano\">PIANO</th>\n              <th>LOCALE</th>\n              <th>TIPOLOGIA</th>\n              <th class=\"col-specifica\">Specifica superficie</th>\n              <th>Sup. Locale (m²)</th>\n              <th>L</th>\n              <th>L/2</th>\n              <th>Imp.</th>\n              <th>N°AGG.</th>\n              <th>Dimensioni apertura</th>\n              <th class=\"th-formula\">Calcolo superficie<br>finestrata utile</th>\n              <th>Sup. Fin. (m²)</th>\n              <th>Tot. (m²)</th>\n              <th>Rapporto (S<sub>u</sub>/A<sub>f</sub>)</th>\n            </tr>\n          </thead>\n          <tbody>`;
+          <colgroup>\n            <col class=\"w-unita col-unita\">\n            <col class=\"w-piano col-piano\">\n            <col class=\"w-locale\">\n            <col class=\"w-tipologia\">\n            <col class=\"w-specifica col-specifica\">\n            <col class=\"w-suplocale\">\n            <col class=\"w-l\">\n            <col class=\"w-l2\">\n            <col class=\"w-imp\">\n            <col class=\"w-nagg\">\n            <col class=\"w-hd\">\n            <col class=\"w-dim\">\n            <col class=\"w-formula th-formula\">\n            <col class=\"w-supfin\">\n            <col class=\"w-tot\">\n            <col class=\"w-rapporto\">\n          </colgroup>\n          <thead class=\"table-primary\">\n            <tr>\n              <th class=\"col-unita\">UNITÀ</th>\n              <th class=\"col-piano\">PIANO</th>\n              <th>LOCALE</th>\n              <th>TIPOLOGIA</th>\n              <th class=\"col-specifica\">Specifica superficie</th>\n              <th>Sup. Locale (m²)</th>\n              <th>L</th>\n              <th>L/2</th>\n              <th>Imp.</th>\n              <th>N°AGG.</th>\n              <th>Hd</th>\n              <th>Dimensioni apertura</th>\n              <th class=\"th-formula\">Calcolo superficie<br>finestrata utile</th>\n              <th>Sup. Fin. (m²)</th>\n              <th>Tot. (m²)</th>\n              <th>Rapporto (S<sub>u</sub>/A<sub>f</sub>)</th>\n            </tr>\n          </thead>\n          <tbody>`;
 
-        const locali = Array.isArray(piano?.locali) ? piano.locali : [];
         if (locali.length === 0) {
           const rapportoTot = 0;
             html += `<tr>
@@ -3084,6 +3311,7 @@ function generaReport(idsOverride = null) {
               <td>0,000</td>
               <td>0,20</td>
               <td></td>
+              <td>0,00</td>
               <td>0,00 × 0,00</td>
               <td class="cell-formula">0,00×(0,00+(0,000:3))</td>
               <td>0,00</td>
@@ -3113,6 +3341,7 @@ function generaReport(idsOverride = null) {
                  <td>0,000</td>
                  <td>0,20</td>
                  <td></td>
+                 <td>0,00</td>
                  <td>0,00 × 0,00</td>
                  <td class="cell-formula">0,00×(0,00+(0,000:3))</td>
                  <td>0,00</td>
@@ -3133,6 +3362,7 @@ function generaReport(idsOverride = null) {
               const L = parseItalianNumber(apertura.sporgenza || '0');
               const larghezza = parseItalianNumber(apertura.larghezza || '0');
               const H = parseItalianNumber(apertura.altezza || '0');
+              const hd = parseItalianNumber(apertura.hdavanzale || '0');
               const imp = parseItalianNumber(apertura.imposta || '0,20');
 
               const rowDanger = rapportoTot > rapportoRichiesto ? ' row-danger' : '';
@@ -3162,6 +3392,7 @@ function generaReport(idsOverride = null) {
                 <td>${formatItalianNumber(calcoli.l2, 3)}</td>
                 <td>${formatItalianNumber(imp)}</td>
                 <td>${escapeHtml(nagg)}</td>
+                <td>${formatItalianNumber(hd)}</td>
                 <td>${formatItalianNumber(larghezza)} × ${formatItalianNumber(H)}</td>
                 <td class="cell-formula">${formatItalianNumber(larghezza)}×(${formatItalianNumber(calcoli.intero)}+(${formatItalianNumber(calcoli.unterzo,3)}:3))</td>
                 <td>${formatItalianNumber(calcoli.areaFinestrata)}</td>
@@ -3251,28 +3482,157 @@ const TIPOLOGIE_NON_RESIDENZIALI = [
   'ACCESSORIO TERZIARIO'
 ];
 
+function setupRiepilogoSuperficiScenarioButtons() {
+  const btnPrima = document.getElementById('btn-riepilogo-superfici-prima');
+  const btnDopo = document.getElementById('btn-riepilogo-superfici-dopo');
+  if (!btnPrima || !btnDopo || btnPrima.dataset.bound === '1') return;
+  btnPrima.dataset.bound = '1';
+  btnDopo.dataset.bound = '1';
+
+  btnPrima.addEventListener('click', () => {
+    statoApp.riepilogoSuperficiScenario = 'prima';
+    aggiornaPulsantiRiepilogoSuperficiScenario();
+    generaRiepilogoSuperfici();
+  });
+  btnDopo.addEventListener('click', () => {
+    statoApp.riepilogoSuperficiScenario = 'dopo';
+    aggiornaPulsantiRiepilogoSuperficiScenario();
+    generaRiepilogoSuperfici();
+  });
+  aggiornaPulsantiRiepilogoSuperficiScenario();
+}
+
+function aggiornaPulsantiRiepilogoSuperficiScenario() {
+  const scenario = statoApp.riepilogoSuperficiScenario || 'dopo';
+  const scenarioLabel = scenario === 'prima' ? 'PRIMA' : 'DOPO';
+  const btnPrima = document.getElementById('btn-riepilogo-superfici-prima');
+  const btnDopo = document.getElementById('btn-riepilogo-superfici-dopo');
+  const labelEl = document.getElementById('riepilogo-superfici-scenario-label');
+  if (btnPrima) {
+    btnPrima.classList.toggle('active', scenario === 'prima');
+  }
+  if (btnDopo) {
+    btnDopo.classList.toggle('active', scenario === 'dopo');
+  }
+  if (labelEl) {
+    labelEl.textContent = scenarioLabel;
+    labelEl.classList.remove('bg-primary', 'bg-secondary');
+    labelEl.classList.add(scenario === 'prima' ? 'bg-secondary' : 'bg-primary');
+  }
+}
+
+function setupRiepilogoSuperficiNonResidenzialiScenarioButtons() {
+  const btnPrima = document.getElementById('btn-riepilogo-superfici-non-residenziali-prima');
+  const btnDopo = document.getElementById('btn-riepilogo-superfici-non-residenziali-dopo');
+  if (!btnPrima || !btnDopo || btnPrima.dataset.bound === '1') return;
+  btnPrima.dataset.bound = '1';
+  btnDopo.dataset.bound = '1';
+
+  btnPrima.addEventListener('click', () => {
+    statoApp.riepilogoSuperficiNonResidenzialiScenario = 'prima';
+    aggiornaPulsantiRiepilogoSuperficiNonResidenzialiScenario();
+    generaRiepilogoSuperficiNonResidenziali();
+  });
+  btnDopo.addEventListener('click', () => {
+    statoApp.riepilogoSuperficiNonResidenzialiScenario = 'dopo';
+    aggiornaPulsantiRiepilogoSuperficiNonResidenzialiScenario();
+    generaRiepilogoSuperficiNonResidenziali();
+  });
+  aggiornaPulsantiRiepilogoSuperficiNonResidenzialiScenario();
+}
+
+function aggiornaPulsantiRiepilogoSuperficiNonResidenzialiScenario() {
+  const scenario = statoApp.riepilogoSuperficiNonResidenzialiScenario || 'dopo';
+  const scenarioLabel = scenario === 'prima' ? 'PRIMA' : 'DOPO';
+  const btnPrima = document.getElementById('btn-riepilogo-superfici-non-residenziali-prima');
+  const btnDopo = document.getElementById('btn-riepilogo-superfici-non-residenziali-dopo');
+  const labelEl = document.getElementById('riepilogo-superfici-non-residenziali-scenario-label');
+  if (btnPrima) {
+    btnPrima.classList.toggle('active', scenario === 'prima');
+  }
+  if (btnDopo) {
+    btnDopo.classList.toggle('active', scenario === 'dopo');
+  }
+  if (labelEl) {
+    labelEl.textContent = scenarioLabel;
+    labelEl.classList.remove('bg-primary', 'bg-secondary');
+    labelEl.classList.add(scenario === 'prima' ? 'bg-secondary' : 'bg-primary');
+  }
+}
+
+function setupCostoScenarioButtons() {
+  const btnPrima = document.getElementById('btn-costo-scenario-prima');
+  const btnDopo = document.getElementById('btn-costo-scenario-dopo');
+  if (!btnPrima || !btnDopo || btnPrima.dataset.bound === '1') return;
+  btnPrima.dataset.bound = '1';
+  btnDopo.dataset.bound = '1';
+
+  btnPrima.addEventListener('click', () => {
+    statoApp.costoScenario = 'prima';
+    aggiornaPulsantiCostoScenario();
+    generaCostoCostruzione();
+  });
+  btnDopo.addEventListener('click', () => {
+    statoApp.costoScenario = 'dopo';
+    aggiornaPulsantiCostoScenario();
+    generaCostoCostruzione();
+  });
+  aggiornaPulsantiCostoScenario();
+}
+
+function aggiornaPulsantiCostoScenario() {
+  const scenario = statoApp.costoScenario || 'dopo';
+  const scenarioLabel = scenario === 'prima' ? 'PRIMA' : 'DOPO';
+  const btnPrima = document.getElementById('btn-costo-scenario-prima');
+  const btnDopo = document.getElementById('btn-costo-scenario-dopo');
+  const labelEl = document.getElementById('costo-scenario-label');
+  if (btnPrima) {
+    btnPrima.classList.toggle('active', scenario === 'prima');
+  }
+  if (btnDopo) {
+    btnDopo.classList.toggle('active', scenario === 'dopo');
+  }
+  if (labelEl) {
+    labelEl.textContent = scenarioLabel;
+    labelEl.classList.remove('bg-primary', 'bg-secondary');
+    labelEl.classList.add(scenario === 'prima' ? 'bg-secondary' : 'bg-primary');
+  }
+}
+
 // Vista Riepilogo Superfici (Residenziali)
-function generaRiepilogoSuperfici() {
+function generaRiepilogoSuperfici(scenarioOverride = null) {
   const container = document.getElementById('riepilogo-superfici-content');
   if (!container) return;
 
+  const scenario = scenarioOverride || statoApp.riepilogoSuperficiScenario || 'dopo';
+  statoApp.riepilogoSuperficiScenario = scenario;
+  aggiornaPulsantiRiepilogoSuperficiScenario();
+
+  const scenarioLabel = scenario === 'prima' ? 'PRIMA' : 'DOPO';
   const edifici = dataModel.getAllEdifici();
   
-  // Raccogli tutti i locali con le loro informazioni, raggruppati per unità (edificio) e tipologia
-  const localiPerUnitaETipologia = {};
+  // Raccogli tutti i locali con le loro informazioni, raggruppati per unità (edificio), piano e tipologia
+  const localiPerUnitaPianoTipologia = {};
   
   edifici.forEach(edificio => {
     if (!edificio.piani || !Array.isArray(edificio.piani)) return;
     const nomeEdificio = edificio.nome || 'Edificio senza nome';
     
-    if (!localiPerUnitaETipologia[nomeEdificio]) {
-      localiPerUnitaETipologia[nomeEdificio] = {};
+    if (!localiPerUnitaPianoTipologia[nomeEdificio]) {
+      localiPerUnitaPianoTipologia[nomeEdificio] = {};
     }
     
     edificio.piani.forEach(piano => {
       if (!piano.locali || !Array.isArray(piano.locali)) return;
+      const nomePiano = piano.nome || 'Piano senza nome';
+      
+      if (!localiPerUnitaPianoTipologia[nomeEdificio][nomePiano]) {
+        localiPerUnitaPianoTipologia[nomeEdificio][nomePiano] = {};
+      }
       
       piano.locali.forEach(locale => {
+        if (!localeInScenario(locale, scenario)) return;
+
         const tipologia = locale.tipologiaSuperficie || 'Non specificata';
         
         // Filtra solo le tipologie residenziali
@@ -3293,14 +3653,14 @@ function generaRiepilogoSuperfici() {
           return;
         }
         
-        if (!localiPerUnitaETipologia[nomeEdificio][tipologia]) {
-          localiPerUnitaETipologia[nomeEdificio][tipologia] = {
+        if (!localiPerUnitaPianoTipologia[nomeEdificio][nomePiano][tipologia]) {
+          localiPerUnitaPianoTipologia[nomeEdificio][nomePiano][tipologia] = {
             locali: [],
             somma: 0
           };
         }
         
-        localiPerUnitaETipologia[nomeEdificio][tipologia].locali.push({
+        localiPerUnitaPianoTipologia[nomeEdificio][nomePiano][tipologia].locali.push({
           nome: locale.nome || 'Locale senza nome',
           superficie: superficie,
           specificaSuperficie: locale.specificaSuperficie || '',
@@ -3309,14 +3669,28 @@ function generaRiepilogoSuperfici() {
           localeId: locale.id
         });
         
-        localiPerUnitaETipologia[nomeEdificio][tipologia].somma += superficie;
+        localiPerUnitaPianoTipologia[nomeEdificio][nomePiano][tipologia].somma += superficie;
       });
     });
   });
   
-  // Se non ci sono locali, mostra messaggio
-  if (Object.keys(localiPerUnitaETipologia).length === 0) {
-    container.innerHTML = '<div class="card-body text-center text-muted p-5">Nessun locale presente.</div>';
+  // Verifica se ci sono dati da mostrare (controlla anche dentro i piani)
+  let haDati = false;
+  Object.keys(localiPerUnitaPianoTipologia).forEach(nomeEdificio => {
+    const pianiEdificio = localiPerUnitaPianoTipologia[nomeEdificio];
+    Object.keys(pianiEdificio).forEach(nomePiano => {
+      const tipologiePiano = pianiEdificio[nomePiano];
+      Object.keys(tipologiePiano).forEach(tipologia => {
+        const dati = tipologiePiano[tipologia];
+        if (dati.locali.length > 0 && dati.somma > 0) {
+          haDati = true;
+        }
+      });
+    });
+  });
+  
+  if (!haDati) {
+    container.innerHTML = `<div class="card-body text-center text-muted p-5">Nessun locale residenziale con spunta <strong>${scenarioLabel}</strong>.</div>`;
     return;
   }
 
@@ -3339,10 +3713,18 @@ function generaRiepilogoSuperfici() {
       #riepilogo-superfici-content .mt-4 { 
         margin-top: 8px !important; 
       }
+      @media print {
+        #riepilogo-superfici-content .totale-piano-row {
+          display: none !important;
+        }
+      }
     </style>
     <div class="card-body">
-      <div class="d-flex justify-content-between align-items-center mb-3">
-        <h3 class="mb-0">RIEPILOGO SUPERFICI PER TIPOLOGIA RESIDENZIALE</h3>
+      <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+        <div>
+          <h3 class="mb-0">RIEPILOGO SUPERFICI PER TIPOLOGIA RESIDENZIALE</h3>
+          <p class="small text-muted mb-0 mt-1">Locali con spunta <strong>${scenarioLabel}</strong></p>
+        </div>
         <div class="d-flex gap-2">
           <button id="btn-riepilogo-stampa-pdf" class="btn btn-success btn-sm">STAMPA PDF</button>
           <button id="btn-riepilogo-export-excel" class="btn btn-success btn-sm">ESPORTA EXCEL</button>
@@ -3352,82 +3734,133 @@ function generaRiepilogoSuperfici() {
         <table class="table table-bordered table-hover" style="margin-bottom: 0;">
           <thead class="table-primary">
             <tr>
-              <th style="width: 10%;">UNITA</th>
-              <th style="width: 20%;">TIPOLOGIA</th>
-              <th style="width: 25%;">LOCALE</th>
-              <th style="width: 25%;">SPECIFICA SUPERFICIE</th>
-              <th style="width: 20%;">SUP.</th>
+              <th style="width: 8%;">UNITA</th>
+              <th style="width: 8%;">PIANO</th>
+              <th style="width: 18%;">TIPOLOGIA</th>
+              <th style="width: 22%;">LOCALE</th>
+              <th style="width: 22%;">SPECIFICA SUPERFICIE</th>
+              <th style="width: 22%;">SUP.</th>
             </tr>
           </thead>
           <tbody>
   `;
 
   // Itera per ogni unità (edificio)
-  Object.keys(localiPerUnitaETipologia).forEach(nomeEdificio => {
-    const tipologieUnita = localiPerUnitaETipologia[nomeEdificio];
+  Object.keys(localiPerUnitaPianoTipologia).forEach(nomeEdificio => {
+    const pianiEdificio = localiPerUnitaPianoTipologia[nomeEdificio];
     
-    // Separa ABITAZIONE, ACCESSORIO ABITAZIONE e altre tipologie
-    const tipologieAbitazione = [];
-    const altreTipologie = [];
+    // Calcola il numero totale di righe per questo edificio (tutti i piani)
+    let totaleRigheEdificio = 0;
+    const pianiConDati = [];
     
-    Object.keys(tipologieUnita).forEach(tipologia => {
-      if (tipologia === 'ABITAZIONE' || tipologia === 'ACCESSORIO ABITAZIONE') {
-        tipologieAbitazione.push(tipologia);
-      } else {
-        altreTipologie.push(tipologia);
+    Object.keys(pianiEdificio).forEach(nomePiano => {
+      const tipologiePiano = pianiEdificio[nomePiano];
+      let righePiano = 0;
+      
+      // Conta le righe per questo piano (locali + somme tipologie)
+      Object.keys(tipologiePiano).forEach(tipologia => {
+        const dati = tipologiePiano[tipologia];
+        if (dati.locali.length > 0 && dati.somma > 0) {
+          righePiano += dati.locali.length + 1; // +1 per la riga di somma tipologia
+        }
+      });
+      
+      // Se ci sono tipologie con dati, aggiungi questo piano
+      if (righePiano > 0) {
+        totaleRigheEdificio += righePiano;
+        // righePianoPerRowspan è uguale a righePiano (non c'è più TOTALE PIANO)
+        const righePianoPerRowspan = righePiano;
+        pianiConDati.push({ nomePiano, righePiano, righePianoPerRowspan, tipologiePiano });
       }
     });
     
-    // Ordina ABITAZIONE prima di ACCESSORIO ABITAZIONE
-    tipologieAbitazione.sort((a, b) => {
-      if (a === 'ABITAZIONE') return -1;
-      if (b === 'ABITAZIONE') return 1;
-      return 0;
-    });
-    
-    // Ordina le altre tipologie alfabeticamente
-    altreTipologie.sort((a, b) => a.localeCompare(b));
-    
-    // Calcola il numero totale di righe per questa unità (solo per tipologie con superficie > 0)
-    let totaleRighe = 0;
-    tipologieAbitazione.forEach(tipologia => {
-      const dati = tipologieUnita[tipologia];
-      if (dati.locali.length > 0 && dati.somma > 0) {
-        totaleRighe += dati.locali.length + 1; // +1 per la riga di somma
-      }
-    });
-    altreTipologie.forEach(tipologia => {
-      const dati = tipologieUnita[tipologia];
-      if (dati.locali.length > 0 && dati.somma > 0) {
-        totaleRighe += dati.locali.length + 1; // +1 per la riga di somma
-      }
-    });
-    
-    // Se non ci sono righe da mostrare, salta questa unità
-    if (totaleRighe === 0) {
+    // Se non ci sono righe da mostrare, salta questo edificio
+    if (totaleRigheEdificio === 0) {
       return;
     }
     
-    let primaRiga = true;
+    // Raccogli tutte le tipologie presenti nell'edificio con i loro totali
+    const totaliTipologieEdificio = {};
     
-    // Prima mostra ABITAZIONE (se presente e con locali con superficie > 0)
-    if (tipologieAbitazione.includes('ABITAZIONE')) {
-      const dati = tipologieUnita['ABITAZIONE'];
+    // Calcola i totali per tipologia sommando tutti i piani
+    pianiConDati.forEach(({ tipologiePiano }) => {
+      Object.keys(tipologiePiano).forEach(tipologia => {
+        const dati = tipologiePiano[tipologia];
+        if (dati.locali.length > 0 && dati.somma > 0) {
+          if (!totaliTipologieEdificio[tipologia]) {
+            totaliTipologieEdificio[tipologia] = 0;
+          }
+          totaliTipologieEdificio[tipologia] += dati.somma;
+        }
+      });
+    });
+    
+    // Aggiungi le righe per i totali tipologie edificio
+    const numeroRigheTotaliTipologie = Object.keys(totaliTipologieEdificio).length;
+    
+    // Calcola totaleRigheEdificioPerRowspan (include i totali tipologie edificio)
+    const totaleRigheEdificioPerRowspan = totaleRigheEdificio + numeroRigheTotaliTipologie;
+    
+    let primaRigaEdificio = true;
+    
+    // Itera per ogni piano dell'edificio
+    pianiConDati.forEach(({ nomePiano, righePiano, righePianoPerRowspan, tipologiePiano }) => {
+      // Separa ABITAZIONE, ACCESSORIO ABITAZIONE e altre tipologie
+      const tipologieAbitazione = [];
+      const altreTipologie = [];
       
-      // Mostra solo se ci sono locali con superficie > 0
-      if (dati.locali.length > 0 && dati.somma > 0) {
+      Object.keys(tipologiePiano).forEach(tipologia => {
+        const dati = tipologiePiano[tipologia];
+        if (dati.locali.length > 0 && dati.somma > 0) {
+          if (tipologia === 'ABITAZIONE' || tipologia === 'ACCESSORIO ABITAZIONE') {
+            tipologieAbitazione.push(tipologia);
+          } else {
+            altreTipologie.push(tipologia);
+          }
+        }
+      });
+      
+      // Ordina ABITAZIONE prima di ACCESSORIO ABITAZIONE
+      tipologieAbitazione.sort((a, b) => {
+        if (a === 'ABITAZIONE') return -1;
+        if (b === 'ABITAZIONE') return 1;
+        return 0;
+      });
+      
+      // Ordina le altre tipologie alfabeticamente
+      altreTipologie.sort((a, b) => a.localeCompare(b));
+      
+      let primaRigaPiano = true;
+      let totalePiano = 0;
+      
+      // Mostra ABITAZIONE
+      if (tipologieAbitazione.includes('ABITAZIONE')) {
+        const dati = tipologiePiano['ABITAZIONE'];
         dati.locali.forEach((locale, index) => {
-          if (primaRiga) {
+          if (primaRigaEdificio && primaRigaPiano) {
             html += `
               <tr class="riepilogo-locale-row" style="cursor: pointer;" data-edificio-id="${locale.edificioId}" data-piano-id="${locale.pianoId}" data-locale-id="${locale.localeId}" title="Doppio click per aprire il locale">
-                <td rowspan="${totaleRighe}" class="align-middle">${escapeHtml(nomeEdificio)}</td>
+                <td rowspan="${totaleRigheEdificioPerRowspan}" class="align-middle">${escapeHtml(nomeEdificio)}</td>
+                <td rowspan="${righePianoPerRowspan}" class="align-middle">${escapeHtml(nomePiano)}</td>
                 <td>ABITAZIONE</td>
                 <td>${escapeHtml(locale.nome)}</td>
                 <td>${escapeHtml(locale.specificaSuperficie)}</td>
                 <td>${formatItalianNumber(locale.superficie)}</td>
               </tr>
             `;
-            primaRiga = false;
+            primaRigaEdificio = false;
+            primaRigaPiano = false;
+          } else if (primaRigaPiano) {
+            html += `
+              <tr class="riepilogo-locale-row" style="cursor: pointer;" data-edificio-id="${locale.edificioId}" data-piano-id="${locale.pianoId}" data-locale-id="${locale.localeId}" title="Doppio click per aprire il locale">
+                <td rowspan="${righePianoPerRowspan}" class="align-middle">${escapeHtml(nomePiano)}</td>
+                <td>ABITAZIONE</td>
+                <td>${escapeHtml(locale.nome)}</td>
+                <td>${escapeHtml(locale.specificaSuperficie)}</td>
+                <td>${formatItalianNumber(locale.superficie)}</td>
+              </tr>
+            `;
+            primaRigaPiano = false;
           } else {
             html += `
               <tr class="riepilogo-locale-row" style="cursor: pointer;" data-edificio-id="${locale.edificioId}" data-piano-id="${locale.pianoId}" data-locale-id="${locale.localeId}" title="Doppio click per aprire il locale">
@@ -3440,7 +3873,6 @@ function generaRiepilogoSuperfici() {
           }
         });
         
-        // Riga di somma per ABITAZIONE
         html += `
           <tr class="table-secondary">
             <td><strong>SOMMA ABITAZIONE</strong></td>
@@ -3449,33 +3881,30 @@ function generaRiepilogoSuperfici() {
             <td><strong>${formatItalianNumber(dati.somma)}</strong></td>
           </tr>
         `;
+        totalePiano += dati.somma;
       }
-    }
-    
-    // Poi mostra ACCESSORIO ABITAZIONE (se presente e con locali con superficie > 0)
-    if (tipologieAbitazione.includes('ACCESSORIO ABITAZIONE')) {
-      const dati = tipologieUnita['ACCESSORIO ABITAZIONE'];
       
-      // Mostra solo se ci sono locali con superficie > 0
-      if (dati.locali.length > 0 && dati.somma > 0) {
-        // Se non c'è ABITAZIONE, la prima riga di ACCESSORIO ABITAZIONE deve avere il rowspan per UNITA'
-        if (!tipologieAbitazione.includes('ABITAZIONE') || !tipologieUnita['ABITAZIONE'] || tipologieUnita['ABITAZIONE'].somma === 0) {
-          // Calcola il numero di righe per ACCESSORIO ABITAZIONE (locali + riga somma)
-          const righeAccessorio = dati.locali.length + 1;
-          dati.locali.forEach((locale, index) => {
-            if (index === 0) {
+      // Mostra ACCESSORIO ABITAZIONE
+      if (tipologieAbitazione.includes('ACCESSORIO ABITAZIONE')) {
+        const dati = tipologiePiano['ACCESSORIO ABITAZIONE'];
+        dati.locali.forEach((locale, index) => {
+          if (primaRigaPiano) {
+            if (primaRigaEdificio) {
               html += `
                 <tr class="riepilogo-locale-row" style="cursor: pointer;" data-edificio-id="${locale.edificioId}" data-piano-id="${locale.pianoId}" data-locale-id="${locale.localeId}" title="Doppio click per aprire il locale">
-                  <td rowspan="${righeAccessorio}" class="align-middle">${escapeHtml(nomeEdificio)}</td>
+                  <td rowspan="${totaleRigheEdificioPerRowspan}" class="align-middle">${escapeHtml(nomeEdificio)}</td>
+                  <td rowspan="${righePianoPerRowspan}" class="align-middle">${escapeHtml(nomePiano)}</td>
                   <td>ACCESSORIO ABITAZIONE</td>
                   <td>${escapeHtml(locale.nome)}</td>
                   <td>${escapeHtml(locale.specificaSuperficie)}</td>
                   <td>${formatItalianNumber(locale.superficie)}</td>
                 </tr>
               `;
+              primaRigaEdificio = false;
             } else {
               html += `
                 <tr class="riepilogo-locale-row" style="cursor: pointer;" data-edificio-id="${locale.edificioId}" data-piano-id="${locale.pianoId}" data-locale-id="${locale.localeId}" title="Doppio click per aprire il locale">
+                  <td rowspan="${righePianoPerRowspan}" class="align-middle">${escapeHtml(nomePiano)}</td>
                   <td>ACCESSORIO ABITAZIONE</td>
                   <td>${escapeHtml(locale.nome)}</td>
                   <td>${escapeHtml(locale.specificaSuperficie)}</td>
@@ -3483,10 +3912,8 @@ function generaRiepilogoSuperfici() {
                 </tr>
               `;
             }
-          });
-        } else {
-          // Se c'è già ABITAZIONE, le righe di ACCESSORIO ABITAZIONE non hanno il rowspan
-          dati.locali.forEach(locale => {
+            primaRigaPiano = false;
+          } else {
             html += `
               <tr class="riepilogo-locale-row" style="cursor: pointer;" data-edificio-id="${locale.edificioId}" data-piano-id="${locale.pianoId}" data-locale-id="${locale.localeId}" title="Doppio click per aprire il locale">
                 <td>ACCESSORIO ABITAZIONE</td>
@@ -3495,10 +3922,9 @@ function generaRiepilogoSuperfici() {
                 <td>${formatItalianNumber(locale.superficie)}</td>
               </tr>
             `;
-          });
-        }
+          }
+        });
         
-        // Riga di somma per ACCESSORIO ABITAZIONE
         html += `
           <tr class="table-secondary">
             <td><strong>SOMMA ACCESSORIO ABITAZIONE</strong></td>
@@ -3507,27 +3933,50 @@ function generaRiepilogoSuperfici() {
             <td><strong>${formatItalianNumber(dati.somma)}</strong></td>
           </tr>
         `;
+        totalePiano += dati.somma;
       }
-    }
-    
-    // Poi mostra le altre tipologie (solo se hanno locali con superficie > 0)
-    altreTipologie.forEach(tipologia => {
-      const dati = tipologieUnita[tipologia];
       
-      // Mostra solo se ci sono locali con superficie > 0
-      if (dati.locali.length > 0 && dati.somma > 0) {
-        dati.locali.forEach(locale => {
-          html += `
-            <tr class="riepilogo-locale-row" style="cursor: pointer;" data-edificio-id="${locale.edificioId}" data-piano-id="${locale.pianoId}" data-locale-id="${locale.localeId}" title="Doppio click per aprire il locale">
-              <td>${escapeHtml(tipologia)}</td>
-              <td>${escapeHtml(locale.nome)}</td>
-              <td>${escapeHtml(locale.specificaSuperficie)}</td>
-              <td>${formatItalianNumber(locale.superficie)}</td>
-            </tr>
-          `;
+      // Mostra le altre tipologie
+      altreTipologie.forEach(tipologia => {
+        const dati = tipologiePiano[tipologia];
+        dati.locali.forEach((locale, index) => {
+          if (primaRigaPiano) {
+            if (primaRigaEdificio) {
+              html += `
+                <tr class="riepilogo-locale-row" style="cursor: pointer;" data-edificio-id="${locale.edificioId}" data-piano-id="${locale.pianoId}" data-locale-id="${locale.localeId}" title="Doppio click per aprire il locale">
+                  <td rowspan="${totaleRigheEdificioPerRowspan}" class="align-middle">${escapeHtml(nomeEdificio)}</td>
+                  <td rowspan="${righePianoPerRowspan}" class="align-middle">${escapeHtml(nomePiano)}</td>
+                  <td>${escapeHtml(tipologia)}</td>
+                  <td>${escapeHtml(locale.nome)}</td>
+                  <td>${escapeHtml(locale.specificaSuperficie)}</td>
+                  <td>${formatItalianNumber(locale.superficie)}</td>
+                </tr>
+              `;
+              primaRigaEdificio = false;
+            } else {
+              html += `
+                <tr class="riepilogo-locale-row" style="cursor: pointer;" data-edificio-id="${locale.edificioId}" data-piano-id="${locale.pianoId}" data-locale-id="${locale.localeId}" title="Doppio click per aprire il locale">
+                  <td rowspan="${righePianoPerRowspan}" class="align-middle">${escapeHtml(nomePiano)}</td>
+                  <td>${escapeHtml(tipologia)}</td>
+                  <td>${escapeHtml(locale.nome)}</td>
+                  <td>${escapeHtml(locale.specificaSuperficie)}</td>
+                  <td>${formatItalianNumber(locale.superficie)}</td>
+                </tr>
+              `;
+            }
+            primaRigaPiano = false;
+          } else {
+            html += `
+              <tr class="riepilogo-locale-row" style="cursor: pointer;" data-edificio-id="${locale.edificioId}" data-piano-id="${locale.pianoId}" data-locale-id="${locale.localeId}" title="Doppio click per aprire il locale">
+                <td>${escapeHtml(tipologia)}</td>
+                <td>${escapeHtml(locale.nome)}</td>
+                <td>${escapeHtml(locale.specificaSuperficie)}</td>
+                <td>${formatItalianNumber(locale.superficie)}</td>
+              </tr>
+            `;
+          }
         });
         
-        // Riga di somma per questa tipologia
         html += `
           <tr class="table-secondary">
             <td><strong>SOMMA ${escapeHtml(tipologia.toUpperCase())}</strong></td>
@@ -3536,7 +3985,30 @@ function generaRiepilogoSuperfici() {
             <td><strong>${formatItalianNumber(dati.somma)}</strong></td>
           </tr>
         `;
-      }
+        totalePiano += dati.somma;
+      });
+    });
+    
+    // Aggiungi le righe di totale per tipologia per edificio
+    // Ordina le tipologie: prima ABITAZIONE e ACCESSORIO ABITAZIONE, poi le altre alfabeticamente
+    const tipologieOrdinate = Object.keys(totaliTipologieEdificio).sort((a, b) => {
+      if (a === 'ABITAZIONE') return -1;
+      if (b === 'ABITAZIONE') return 1;
+      if (a === 'ACCESSORIO ABITAZIONE' && b !== 'ABITAZIONE') return -1;
+      if (b === 'ACCESSORIO ABITAZIONE' && a !== 'ABITAZIONE') return 1;
+      return a.localeCompare(b);
+    });
+    
+    tipologieOrdinate.forEach(tipologia => {
+      const totaleTipologia = totaliTipologieEdificio[tipologia];
+      html += `
+        <tr class="table-warning totale-tipologia-edificio-row">
+          <td colspan="2"><strong>TOTALE ${escapeHtml(tipologia.toUpperCase())} ${escapeHtml(nomeEdificio)}</strong></td>
+          <td></td>
+          <td></td>
+          <td><strong>${formatItalianNumber(totaleTipologia)}</strong></td>
+        </tr>
+      `;
     });
   });
 
@@ -3604,74 +4076,115 @@ function generaRiepilogoSuperfici() {
     'Box Col.': 0
   };
 
-  Object.keys(localiPerUnitaETipologia).forEach(nomeEdificio => {
-    const tipologieUnita = localiPerUnitaETipologia[nomeEdificio];
+  Object.keys(localiPerUnitaPianoTipologia).forEach(nomeEdificio => {
+    const pianiEdificio = localiPerUnitaPianoTipologia[nomeEdificio];
     
-    // Calcola la superficie totale di SOLO ABITAZIONE (senza ACCESSORIO ABITAZIONE)
+    // Calcola la superficie totale di SOLO ABITAZIONE (senza ACCESSORIO ABITAZIONE) sommando tutti i piani
     let superficieAbitazione = 0;
     
-    if (tipologieUnita['ABITAZIONE']) {
-      superficieAbitazione = tipologieUnita['ABITAZIONE'].somma;
-    }
+    Object.keys(pianiEdificio).forEach(nomePiano => {
+      const tipologiePiano = pianiEdificio[nomePiano];
+      if (tipologiePiano['ABITAZIONE']) {
+        superficieAbitazione += tipologiePiano['ABITAZIONE'].somma;
+      }
+    });
     
-    // Classifica in base alla classe di superficie (SOLO ABITAZIONE, non ACCESSORIO)
-    let classeSuperficie = '';
-    if (superficieAbitazione > 0 && superficieAbitazione < 95) {
-      classeSuperficie = '<95';
-      totaliColonne['<95'] += superficieAbitazione;
-      conteggiColonne['<95']++;
-    } else if (superficieAbitazione >= 95 && superficieAbitazione < 110) {
-      classeSuperficie = '95-110';
-      totaliColonne['95-110'] += superficieAbitazione;
-      conteggiColonne['95-110']++;
-    } else if (superficieAbitazione >= 110 && superficieAbitazione < 130) {
-      classeSuperficie = '110-130';
-      totaliColonne['110-130'] += superficieAbitazione;
-      conteggiColonne['110-130']++;
-    } else if (superficieAbitazione >= 130 && superficieAbitazione < 160) {
-      classeSuperficie = '130-160';
-      totaliColonne['130-160'] += superficieAbitazione;
-      conteggiColonne['130-160']++;
-    } else if (superficieAbitazione >= 160) {
-      classeSuperficie = '>160';
-      totaliColonne['>160'] += superficieAbitazione;
-      conteggiColonne['>160']++;
-    }
-    
-    // Raccogli i totali per le altre tipologie
+    // Raccogli i totali per le altre tipologie sommando tutti i piani
     const totaliTipologie = {
-      'Accessori': tipologieUnita['ACCESSORIO ABITAZIONE'] ? tipologieUnita['ACCESSORIO ABITAZIONE'].somma : 0,
-      'Androni': tipologieUnita['ANDRONE'] ? tipologieUnita['ANDRONE'].somma : 0,
-      'Porticati': tipologieUnita['PORTICATO'] ? tipologieUnita['PORTICATO'].somma : 0,
-      'Logge': tipologieUnita['LOGGIA'] ? tipologieUnita['LOGGIA'].somma : 0,
-      'Balconi': tipologieUnita['BALCONE'] ? tipologieUnita['BALCONE'].somma : 0,
-      'Box Sing.': tipologieUnita['BOX SINGOLO'] ? tipologieUnita['BOX SINGOLO'].somma : 0,
-      'Box Col.': tipologieUnita['BOX COLLETTIVO'] ? tipologieUnita['BOX COLLETTIVO'].somma : 0
+      'Accessori': 0,
+      'Androni': 0,
+      'Porticati': 0,
+      'Logge': 0,
+      'Balconi': 0,
+      'Box Sing.': 0,
+      'Box Col.': 0
     };
     
-    // Aggiorna i totali delle colonne
-    totaliColonne['Accessori'] += totaliTipologie['Accessori'];
-    totaliColonne['Androni'] += totaliTipologie['Androni'];
-    totaliColonne['Porticati'] += totaliTipologie['Porticati'];
-    totaliColonne['Logge'] += totaliTipologie['Logge'];
-    totaliColonne['Balconi'] += totaliTipologie['Balconi'];
-    totaliColonne['Box Sing.'] += totaliTipologie['Box Sing.'];
-    totaliColonne['Box Col.'] += totaliTipologie['Box Col.'];
+    Object.keys(pianiEdificio).forEach(nomePiano => {
+      const tipologiePiano = pianiEdificio[nomePiano];
+      if (tipologiePiano['ACCESSORIO ABITAZIONE']) {
+        totaliTipologie['Accessori'] += tipologiePiano['ACCESSORIO ABITAZIONE'].somma;
+      }
+      if (tipologiePiano['ANDRONE']) {
+        totaliTipologie['Androni'] += tipologiePiano['ANDRONE'].somma;
+      }
+      if (tipologiePiano['PORTICATO']) {
+        totaliTipologie['Porticati'] += tipologiePiano['PORTICATO'].somma;
+      }
+      if (tipologiePiano['LOGGIA']) {
+        totaliTipologie['Logge'] += tipologiePiano['LOGGIA'].somma;
+      }
+      if (tipologiePiano['BALCONE']) {
+        totaliTipologie['Balconi'] += tipologiePiano['BALCONE'].somma;
+      }
+      if (tipologiePiano['BOX SINGOLO']) {
+        totaliTipologie['Box Sing.'] += tipologiePiano['BOX SINGOLO'].somma;
+      }
+      if (tipologiePiano['BOX COLLETTIVO']) {
+        totaliTipologie['Box Col.'] += tipologiePiano['BOX COLLETTIVO'].somma;
+      }
+    });
     
-    // Aggiorna i conteggi delle colonne (conta le unità con valore > 0)
-    if (totaliTipologie['Accessori'] > 0) conteggiColonne['Accessori']++;
-    if (totaliTipologie['Androni'] > 0) conteggiColonne['Androni']++;
-    if (totaliTipologie['Porticati'] > 0) conteggiColonne['Porticati']++;
-    if (totaliTipologie['Logge'] > 0) conteggiColonne['Logge']++;
-    if (totaliTipologie['Balconi'] > 0) conteggiColonne['Balconi']++;
-    if (totaliTipologie['Box Sing.'] > 0) conteggiColonne['Box Sing.']++;
-    if (totaliTipologie['Box Col.'] > 0) conteggiColonne['Box Col.']++;
+    // Verifica se l'unità ha almeno una tipologia residenziale con superficie > 0
+    const haTipologieResidenziali = superficieAbitazione > 0 ||
+      totaliTipologie['Accessori'] > 0 ||
+      totaliTipologie['Androni'] > 0 ||
+      totaliTipologie['Porticati'] > 0 ||
+      totaliTipologie['Logge'] > 0 ||
+      totaliTipologie['Balconi'] > 0 ||
+      totaliTipologie['Box Sing.'] > 0 ||
+      totaliTipologie['Box Col.'] > 0;
     
-    datiClassiSuperficie[nomeEdificio] = {
-      classeSuperficie: classeSuperficie,
-      superficieTotale: superficieAbitazione, // Solo ABITAZIONE, non ACCESSORIO
-      totaliTipologie: totaliTipologie
-    };
+    // Aggiungi l'unità e aggiorna i totali solo se ha almeno una tipologia residenziale
+    if (haTipologieResidenziali) {
+      // Classifica in base alla classe di superficie (SOLO ABITAZIONE, non ACCESSORIO)
+      let classeSuperficie = '';
+      if (superficieAbitazione > 0 && superficieAbitazione < 95) {
+        classeSuperficie = '<95';
+        totaliColonne['<95'] += superficieAbitazione;
+        conteggiColonne['<95']++;
+      } else if (superficieAbitazione >= 95 && superficieAbitazione < 110) {
+        classeSuperficie = '95-110';
+        totaliColonne['95-110'] += superficieAbitazione;
+        conteggiColonne['95-110']++;
+      } else if (superficieAbitazione >= 110 && superficieAbitazione < 130) {
+        classeSuperficie = '110-130';
+        totaliColonne['110-130'] += superficieAbitazione;
+        conteggiColonne['110-130']++;
+      } else if (superficieAbitazione >= 130 && superficieAbitazione < 160) {
+        classeSuperficie = '130-160';
+        totaliColonne['130-160'] += superficieAbitazione;
+        conteggiColonne['130-160']++;
+      } else if (superficieAbitazione >= 160) {
+        classeSuperficie = '>160';
+        totaliColonne['>160'] += superficieAbitazione;
+        conteggiColonne['>160']++;
+      }
+      
+      // Aggiorna i totali delle colonne
+      totaliColonne['Accessori'] += totaliTipologie['Accessori'];
+      totaliColonne['Androni'] += totaliTipologie['Androni'];
+      totaliColonne['Porticati'] += totaliTipologie['Porticati'];
+      totaliColonne['Logge'] += totaliTipologie['Logge'];
+      totaliColonne['Balconi'] += totaliTipologie['Balconi'];
+      totaliColonne['Box Sing.'] += totaliTipologie['Box Sing.'];
+      totaliColonne['Box Col.'] += totaliTipologie['Box Col.'];
+      
+      // Aggiorna i conteggi delle colonne (conta le unità con valore > 0)
+      if (totaliTipologie['Accessori'] > 0) conteggiColonne['Accessori']++;
+      if (totaliTipologie['Androni'] > 0) conteggiColonne['Androni']++;
+      if (totaliTipologie['Porticati'] > 0) conteggiColonne['Porticati']++;
+      if (totaliTipologie['Logge'] > 0) conteggiColonne['Logge']++;
+      if (totaliTipologie['Balconi'] > 0) conteggiColonne['Balconi']++;
+      if (totaliTipologie['Box Sing.'] > 0) conteggiColonne['Box Sing.']++;
+      if (totaliTipologie['Box Col.'] > 0) conteggiColonne['Box Col.']++;
+      
+      datiClassiSuperficie[nomeEdificio] = {
+        classeSuperficie: classeSuperficie,
+        superficieTotale: superficieAbitazione, // Solo ABITAZIONE, non ACCESSORIO
+        totaliTipologie: totaliTipologie
+      };
+    }
   });
 
   // Genera le righe della tabella
@@ -3777,27 +4290,39 @@ function generaRiepilogoSuperfici() {
 }
 
 // Vista Riepilogo Superfici Non Residenziali
-function generaRiepilogoSuperficiNonResidenziali() {
+function generaRiepilogoSuperficiNonResidenziali(scenarioOverride = null) {
   const container = document.getElementById('riepilogo-superfici-non-residenziali-content');
   if (!container) return;
 
+  const scenario = scenarioOverride || statoApp.riepilogoSuperficiNonResidenzialiScenario || 'dopo';
+  statoApp.riepilogoSuperficiNonResidenzialiScenario = scenario;
+  aggiornaPulsantiRiepilogoSuperficiNonResidenzialiScenario();
+
+  const scenarioLabel = scenario === 'prima' ? 'PRIMA' : 'DOPO';
   const edifici = dataModel.getAllEdifici();
   
-  // Raccogli tutti i locali con le loro informazioni, raggruppati per unità (edificio) e tipologia
-  const localiPerUnitaETipologia = {};
+  // Raccogli tutti i locali con le loro informazioni, raggruppati per unità (edificio), piano e tipologia
+  const localiPerUnitaPianoTipologia = {};
   
   edifici.forEach(edificio => {
     if (!edificio.piani || !Array.isArray(edificio.piani)) return;
     const nomeEdificio = edificio.nome || 'Edificio senza nome';
     
-    if (!localiPerUnitaETipologia[nomeEdificio]) {
-      localiPerUnitaETipologia[nomeEdificio] = {};
+    if (!localiPerUnitaPianoTipologia[nomeEdificio]) {
+      localiPerUnitaPianoTipologia[nomeEdificio] = {};
     }
     
     edificio.piani.forEach(piano => {
       if (!piano.locali || !Array.isArray(piano.locali)) return;
+      const nomePiano = piano.nome || 'Piano senza nome';
+      
+      if (!localiPerUnitaPianoTipologia[nomeEdificio][nomePiano]) {
+        localiPerUnitaPianoTipologia[nomeEdificio][nomePiano] = {};
+      }
       
       piano.locali.forEach(locale => {
+        if (!localeInScenario(locale, scenario)) return;
+
         const tipologia = locale.tipologiaSuperficie || 'Non specificata';
         
         // Filtra solo le tipologie non residenziali
@@ -3818,14 +4343,14 @@ function generaRiepilogoSuperficiNonResidenziali() {
           return;
         }
         
-        if (!localiPerUnitaETipologia[nomeEdificio][tipologia]) {
-          localiPerUnitaETipologia[nomeEdificio][tipologia] = {
+        if (!localiPerUnitaPianoTipologia[nomeEdificio][nomePiano][tipologia]) {
+          localiPerUnitaPianoTipologia[nomeEdificio][nomePiano][tipologia] = {
             locali: [],
             somma: 0
           };
         }
         
-        localiPerUnitaETipologia[nomeEdificio][tipologia].locali.push({
+        localiPerUnitaPianoTipologia[nomeEdificio][nomePiano][tipologia].locali.push({
           nome: locale.nome || 'Locale senza nome',
           superficie: superficie,
           specificaSuperficie: locale.specificaSuperficie || '',
@@ -3834,14 +4359,27 @@ function generaRiepilogoSuperficiNonResidenziali() {
           localeId: locale.id
         });
         
-        localiPerUnitaETipologia[nomeEdificio][tipologia].somma += superficie;
+        localiPerUnitaPianoTipologia[nomeEdificio][nomePiano][tipologia].somma += superficie;
       });
     });
   });
   
-  // Se non ci sono locali, mostra messaggio
-  if (Object.keys(localiPerUnitaETipologia).length === 0) {
-    container.innerHTML = '<div class="card-body text-center text-muted p-5">Nessun locale presente.</div>';
+  let haDati = false;
+  Object.keys(localiPerUnitaPianoTipologia).forEach(nomeEdificio => {
+    const pianiEdificio = localiPerUnitaPianoTipologia[nomeEdificio];
+    Object.keys(pianiEdificio).forEach(nomePiano => {
+      const tipologiePiano = pianiEdificio[nomePiano];
+      Object.keys(tipologiePiano).forEach(tipologia => {
+        const dati = tipologiePiano[tipologia];
+        if (dati.locali.length > 0 && dati.somma > 0) {
+          haDati = true;
+        }
+      });
+    });
+  });
+
+  if (!haDati) {
+    container.innerHTML = `<div class="card-body text-center text-muted p-5">Nessun locale non residenziale con spunta <strong>${scenarioLabel}</strong>.</div>`;
     return;
   }
 
@@ -3861,10 +4399,18 @@ function generaRiepilogoSuperficiNonResidenziali() {
       #riepilogo-superfici-non-residenziali-content .mb-3 { 
         margin-bottom: 4px !important; 
       }
+      @media print {
+        #riepilogo-superfici-non-residenziali-content .totale-piano-row {
+          display: none !important;
+        }
+      }
     </style>
     <div class="card-body">
-      <div class="d-flex justify-content-between align-items-center mb-3">
-        <h3 class="mb-0">RIEPILOGO SUPERFICI NON RESIDENZIALI</h3>
+      <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+        <div>
+          <h3 class="mb-0">RIEPILOGO SUPERFICI NON RESIDENZIALI</h3>
+          <p class="small text-muted mb-0 mt-1">Locali con spunta <strong>${scenarioLabel}</strong></p>
+        </div>
         <div class="d-flex gap-2">
           <button id="btn-riepilogo-non-residenziali-stampa-pdf" class="btn btn-success btn-sm">STAMPA PDF</button>
           <button id="btn-riepilogo-non-residenziali-export-excel" class="btn btn-success btn-sm">ESPORTA EXCEL</button>
@@ -3874,57 +4420,95 @@ function generaRiepilogoSuperficiNonResidenziali() {
         <table class="table table-bordered table-hover" style="margin-bottom: 0;">
           <thead class="table-primary">
             <tr>
-              <th style="width: 10%;">UNITA</th>
-              <th style="width: 20%;">TIPOLOGIA</th>
-              <th style="width: 25%;">LOCALE</th>
-              <th style="width: 25%;">SPECIFICA SUPERFICIE</th>
-              <th style="width: 20%;">SUP.</th>
+              <th style="width: 8%;">UNITA</th>
+              <th style="width: 8%;">PIANO</th>
+              <th style="width: 18%;">TIPOLOGIA</th>
+              <th style="width: 22%;">LOCALE</th>
+              <th style="width: 22%;">SPECIFICA SUPERFICIE</th>
+              <th style="width: 22%;">SUP.</th>
             </tr>
           </thead>
           <tbody>
   `;
 
   // Itera per ogni unità (edificio)
-  Object.keys(localiPerUnitaETipologia).forEach(nomeEdificio => {
-    const tipologieUnita = localiPerUnitaETipologia[nomeEdificio];
+  Object.keys(localiPerUnitaPianoTipologia).forEach(nomeEdificio => {
+    const pianiEdificio = localiPerUnitaPianoTipologia[nomeEdificio];
     
-    // Ordina le tipologie alfabeticamente
-    const tipologieOrdinate = Object.keys(tipologieUnita).sort((a, b) => a.localeCompare(b));
+    // Calcola il numero totale di righe per questo edificio (tutti i piani)
+    let totaleRigheEdificio = 0;
+    const pianiConDati = [];
     
-    // Calcola il numero totale di righe per questa unità (solo per tipologie con superficie > 0)
-    let totaleRighe = 0;
-    tipologieOrdinate.forEach(tipologia => {
-      const dati = tipologieUnita[tipologia];
-      if (dati.locali.length > 0 && dati.somma > 0) {
-        totaleRighe += dati.locali.length + 1; // +1 per la riga di somma
+    Object.keys(pianiEdificio).forEach(nomePiano => {
+      const tipologiePiano = pianiEdificio[nomePiano];
+      let righePiano = 0;
+      
+      // Conta le righe per questo piano (locali + somme tipologie + riga totale piano)
+      Object.keys(tipologiePiano).forEach(tipologia => {
+        const dati = tipologiePiano[tipologia];
+        if (dati.locali.length > 0 && dati.somma > 0) {
+          righePiano += dati.locali.length + 1; // +1 per la riga di somma tipologia
+        }
+      });
+      
+      // Se ci sono tipologie con dati, aggiungi 1 per la riga TOTALE PIANO
+      if (righePiano > 0) {
+        righePiano += 1;
+        totaleRigheEdificio += righePiano;
+        pianiConDati.push({ nomePiano, righePiano, tipologiePiano });
       }
     });
     
-    // Se non ci sono righe da mostrare, salta questa unità
-    if (totaleRighe === 0) {
+    // Se non ci sono righe da mostrare, salta questo edificio
+    if (totaleRigheEdificio === 0) {
       return;
     }
     
-    let primaRiga = true;
+    // Aggiungi 1 riga per il TOTALE EDIFICIO alla fine
+    totaleRigheEdificio += 1;
     
-    // Mostra le tipologie
-    tipologieOrdinate.forEach(tipologia => {
-      const dati = tipologieUnita[tipologia];
+    let primaRigaEdificio = true;
+    let totaleEdificio = 0;
+    
+    // Itera per ogni piano dell'edificio
+    pianiConDati.forEach(({ nomePiano, righePiano, tipologiePiano }) => {
+      // Ordina le tipologie alfabeticamente
+      const tipologieOrdinate = Object.keys(tipologiePiano).filter(tipologia => {
+        const dati = tipologiePiano[tipologia];
+        return dati.locali.length > 0 && dati.somma > 0;
+      }).sort((a, b) => a.localeCompare(b));
       
-      // Mostra solo se ci sono locali con superficie > 0
-      if (dati.locali.length > 0 && dati.somma > 0) {
+      let primaRigaPiano = true;
+      let totalePiano = 0;
+      
+      // Mostra le tipologie
+      tipologieOrdinate.forEach(tipologia => {
+        const dati = tipologiePiano[tipologia];
         dati.locali.forEach((locale, index) => {
-          if (primaRiga) {
+          if (primaRigaEdificio && primaRigaPiano) {
             html += `
               <tr class="riepilogo-locale-row" style="cursor: pointer;" data-edificio-id="${locale.edificioId}" data-piano-id="${locale.pianoId}" data-locale-id="${locale.localeId}" title="Doppio click per aprire il locale">
-                <td rowspan="${totaleRighe}" class="align-middle">${escapeHtml(nomeEdificio)}</td>
+                <td rowspan="${totaleRigheEdificio}" class="align-middle">${escapeHtml(nomeEdificio)}</td>
+                <td rowspan="${righePiano}" class="align-middle">${escapeHtml(nomePiano)}</td>
                 <td>${escapeHtml(tipologia)}</td>
                 <td>${escapeHtml(locale.nome)}</td>
                 <td>${escapeHtml(locale.specificaSuperficie)}</td>
                 <td>${formatItalianNumber(locale.superficie)}</td>
               </tr>
             `;
-            primaRiga = false;
+            primaRigaEdificio = false;
+            primaRigaPiano = false;
+          } else if (primaRigaPiano) {
+            html += `
+              <tr class="riepilogo-locale-row" style="cursor: pointer;" data-edificio-id="${locale.edificioId}" data-piano-id="${locale.pianoId}" data-locale-id="${locale.localeId}" title="Doppio click per aprire il locale">
+                <td rowspan="${righePiano}" class="align-middle">${escapeHtml(nomePiano)}</td>
+                <td>${escapeHtml(tipologia)}</td>
+                <td>${escapeHtml(locale.nome)}</td>
+                <td>${escapeHtml(locale.specificaSuperficie)}</td>
+                <td>${formatItalianNumber(locale.superficie)}</td>
+              </tr>
+            `;
+            primaRigaPiano = false;
           } else {
             html += `
               <tr class="riepilogo-locale-row" style="cursor: pointer;" data-edificio-id="${locale.edificioId}" data-piano-id="${locale.pianoId}" data-locale-id="${locale.localeId}" title="Doppio click per aprire il locale">
@@ -3937,7 +4521,6 @@ function generaRiepilogoSuperficiNonResidenziali() {
           }
         });
         
-        // Riga di somma per questa tipologia
         html += `
           <tr class="table-secondary">
             <td><strong>SOMMA ${escapeHtml(tipologia.toUpperCase())}</strong></td>
@@ -3946,8 +4529,30 @@ function generaRiepilogoSuperficiNonResidenziali() {
             <td><strong>${formatItalianNumber(dati.somma)}</strong></td>
           </tr>
         `;
-      }
+        totalePiano += dati.somma;
+      });
+      
+      // Riga TOTALE PIANO
+      html += `
+        <tr class="table-info totale-piano-row">
+          <td><strong>TOTALE PIANO ${escapeHtml(nomePiano)}</strong></td>
+          <td></td>
+          <td></td>
+          <td><strong>${formatItalianNumber(totalePiano)}</strong></td>
+        </tr>
+      `;
+      totaleEdificio += totalePiano;
     });
+    
+    // Riga TOTALE EDIFICIO
+    html += `
+      <tr class="table-warning">
+        <td><strong>TOTALE EDIFICIO ${escapeHtml(nomeEdificio)}</strong></td>
+        <td></td>
+        <td></td>
+        <td><strong>${formatItalianNumber(totaleEdificio)}</strong></td>
+      </tr>
+    `;
   });
 
   html += `
@@ -3992,10 +4597,121 @@ function generaRiepilogoSuperficiNonResidenziali() {
   }
 }
 
-// Vista Costo di Costruzione
-function generaCostoCostruzione() {
-  const container = document.getElementById('costo-costruzione-content');
+function salvaMetricheCostoScenario(scenario, metriche) {
+  if (!statoApp.costoMetriche) statoApp.costoMetriche = {};
+  statoApp.costoMetriche[scenario] = metriche;
+}
+
+function formatNumeroConMigliaia(num, decimals = 2) {
+  const n = Number(num) || 0;
+  const fixed = n.toFixed(decimals);
+  const parts = fixed.split('.');
+  const integerWithThousands = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  return parts[1] ? `${integerWithThousands},${parts[1]}` : integerWithThousands;
+}
+
+function renderConfrontoCostoPanel(container, formatFn) {
+  const prima = statoApp.costoMetriche?.prima;
+  const dopo = statoApp.costoMetriche?.dopo;
   if (!container) return;
+
+  if (!prima || !dopo) {
+    container.innerHTML = '<p class="text-muted text-center p-4 mb-0">Apri la vista COSTO, attendi il caricamento dei calcoli, poi torna qui per il confronto.</p>';
+    return;
+  }
+
+  const fmt = formatFn || ((n) => formatItalianNumber(Number(n) || 0));
+  const fmtEur = (n) => `${formatNumeroConMigliaia(Number(n) || 0)} €`;
+  const delta = (a, b) => b - a;
+
+  container.innerHTML = `
+    <div class="confronto-costo-panel alert alert-light border mb-0">
+    <h5 class="text-primary mb-3">Confronto PRIMA vs DOPO</h5>
+    <p class="small text-muted mb-2">Parametri oneri e costo al m² condivisi; differenze dovute ai locali inclusi in ciascuno scenario.</p>
+    <table class="table table-bordered table-sm mb-0">
+      <thead class="table-light">
+        <tr><th>Voce</th><th class="text-end">PRIMA</th><th class="text-end">DOPO</th><th class="text-end">Δ (DOPO − PRIMA)</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>S.U. residenziale (mq)</td><td class="text-end">${fmt(prima.su)}</td><td class="text-end">${fmt(dopo.su)}</td><td class="text-end">${fmt(delta(prima.su, dopo.su))}</td></tr>
+        <tr><td>Sc (mq)</td><td class="text-end">${fmt(prima.sc)}</td><td class="text-end">${fmt(dopo.sc)}</td><td class="text-end">${fmt(delta(prima.sc, dopo.sc))}</td></tr>
+        <tr><td>St (mq)</td><td class="text-end">${fmt(prima.st)}</td><td class="text-end">${fmt(dopo.st)}</td><td class="text-end">${fmt(delta(prima.st, dopo.st))}</td></tr>
+        <tr class="fw-bold"><td>Costo costruzione (C)</td><td class="text-end">${fmtEur(prima.costoCostruzioneTotale)}</td><td class="text-end">${fmtEur(dopo.costoCostruzioneTotale)}</td><td class="text-end">${fmtEur(delta(prima.costoCostruzioneTotale, dopo.costoCostruzioneTotale))}</td></tr>
+        <tr><td>Contributo</td><td class="text-end">${fmtEur(prima.contributo)}</td><td class="text-end">${fmtEur(dopo.contributo)}</td><td class="text-end">${fmtEur(delta(prima.contributo, dopo.contributo))}</td></tr>
+        <tr class="table-secondary fw-bold"><td>Totale oneri + contributo</td><td class="text-end">${fmtEur(prima.totaleComplessivo)}</td><td class="text-end">${fmtEur(dopo.totaleComplessivo)}</td><td class="text-end">${fmtEur(delta(prima.totaleComplessivo, dopo.totaleComplessivo))}</td></tr>
+      </tbody>
+    </table>
+    </div>
+  `;
+}
+
+function generaVistaConfrontoCosto() {
+  const container = document.getElementById('confronto-costo-content');
+  if (!container) return;
+
+  container.innerHTML = '<p class="text-muted text-center p-4 mb-0">Calcolo confronto in corso...</p>';
+  const ripristina = statoApp.costoScenario || 'dopo';
+
+  // Calcolo sequenziale: se PRIMA e DOPO partono insieme, il secondo cancella il DOM
+  // del primo prima che le metriche PRIMA vengano salvate (setTimeout 100 ms).
+  generaCostoCostruzione('prima', () => {
+    generaCostoCostruzione('dopo', () => {
+      try {
+        renderConfrontoCostoPanel(container, null);
+      } catch (err) {
+        console.error('Errore visualizzazione confronto:', err);
+        container.innerHTML = '<p class="text-danger text-center p-4 mb-0">Errore nella visualizzazione del confronto. Controlla la console.</p>';
+        return;
+      }
+      generaCostoCostruzione(ripristina);
+    });
+  });
+}
+
+function aggiornaMetricheCostoDaContainer(container, scenario, su, snr, stNonResidenziale) {
+  const sc = su + (snr * 0.6);
+  const st = stNonResidenziale;
+  const costoEl = container.querySelector('#costo-costruzione-totale-value');
+  const contributoEl = container.querySelector('#contributo-costo-costruzione-value');
+  const riepilogoTotaleEl = container.querySelector('#riepilogo-totale-costi');
+  const costoCostruzioneTotale = costoEl
+    ? parseItalianNumber(costoEl.textContent.replace(/\./g, '')) || 0
+    : 0;
+  const contributo = contributoEl
+    ? parseItalianNumber(contributoEl.textContent.replace(/\./g, '')) || 0
+    : 0;
+  const totaleComplessivo = riepilogoTotaleEl
+    ? parseItalianNumber(riepilogoTotaleEl.textContent.replace(/\./g, '')) || 0
+    : contributo;
+  salvaMetricheCostoScenario(scenario, {
+    su,
+    snr,
+    sc,
+    st,
+    costoCostruzioneTotale,
+    contributo,
+    totaleComplessivo
+  });
+}
+
+// Vista Costo di Costruzione (scenario: 'prima' | 'dopo')
+function generaCostoCostruzione(scenarioOverride = null, onComplete = null) {
+  let scenario = scenarioOverride ?? statoApp.costoScenario ?? 'dopo';
+  if (scenario === 'costo-costruzione') scenario = 'dopo';
+
+  const container = document.getElementById('costo-content');
+  if (!container) {
+    if (typeof onComplete === 'function') onComplete();
+    return;
+  }
+
+  if (scenarioOverride === null) {
+    statoApp.costoScenario = scenario;
+    aggiornaPulsantiCostoScenario();
+  }
+
+  const scenarioLabel = scenario === 'prima' ? 'PRIMA' : 'DOPO';
+  const nomeRadioPercentuale = 'percentuale-contributo';
 
   const edifici = dataModel.getAllEdifici();
   
@@ -4014,6 +4730,8 @@ function generaCostoCostruzione() {
       if (!piano.locali || !Array.isArray(piano.locali)) return;
       
       piano.locali.forEach(locale => {
+        if (!localeInScenario(locale, scenario)) return;
+
         const tipologia = locale.tipologiaSuperficie || 'Non specificata';
         
         // Filtra solo le tipologie residenziali
@@ -4165,6 +4883,8 @@ function generaCostoCostruzione() {
       if (!piano.locali || !Array.isArray(piano.locali)) return;
       
       piano.locali.forEach(locale => {
+        if (!localeInScenario(locale, scenario)) return;
+
         const tipologia = locale.tipologiaSuperficie || 'Non specificata';
         
         // Filtra solo le tipologie non residenziali
@@ -4249,49 +4969,49 @@ function generaCostoCostruzione() {
   // Genera HTML
   let html = `
     <style>
-      #costo-costruzione-content table { 
+      .costo-scenario-panel table { 
         margin-bottom: 20px; 
         width: 100%;
       }
-      #costo-costruzione-content table th, #costo-costruzione-content table td { 
+      .costo-scenario-panel table th, .costo-scenario-panel table td { 
         border: 1px solid #000; 
         padding: 8px; 
         text-align: center;
         vertical-align: middle;
       }
-      #costo-costruzione-content table thead th { 
+      .costo-scenario-panel table thead th { 
         background-color: #e0e0e0; 
         font-weight: bold;
       }
-      #costo-costruzione-content .table-totale td { 
+      .costo-scenario-panel .table-totale td { 
         background-color: #00FFFF; 
         font-weight: bold;
       }
-      #costo-costruzione-content .tabella1-totale-valore {
+      .costo-scenario-panel .tabella1-totale-valore {
         font-size: 1.15em;
       }
-      #costo-costruzione-content .totale-incrementi-riga-dati {
+      .costo-scenario-panel .totale-incrementi-riga-dati {
         font-size: 1.15em;
       }
-      #costo-costruzione-content input[type="radio"] { 
+      .costo-scenario-panel input[type="radio"] { 
         margin: 0 auto;
         display: block;
         cursor: pointer;
       }
-      #costo-costruzione-content .oneri-urbanizzazione-sezione {
+      .costo-scenario-panel .oneri-urbanizzazione-sezione {
         font-size: 1.2rem;
         font-weight: bold;
       }
-      #costo-costruzione-content .oneri-urbanizzazione-titolo {
+      .costo-scenario-panel .oneri-urbanizzazione-titolo {
         font-size: 1.2rem;
       }
-      #costo-costruzione-content .oneri-urbanizzazione-riga {
+      .costo-scenario-panel .oneri-urbanizzazione-riga {
         font-size: 1.2rem;
       }
-      #costo-costruzione-content .oneri-operator {
+      .costo-scenario-panel .oneri-operator {
         font-size: 1.2rem;
       }
-      #costo-costruzione-content .oneri-box-totale {
+      .costo-scenario-panel .oneri-box-totale {
         background-color: #90ee90;
         font-weight: bold;
         width: 120px;
@@ -4300,7 +5020,7 @@ function generaCostoCostruzione() {
         border-radius: 4px;
         font-size: 1.2rem;
       }
-      #costo-costruzione-content .oneri-box-finale {
+      .costo-scenario-panel .oneri-box-finale {
         background-color: #ffffff;
         font-weight: bold;
         width: 200px;
@@ -4309,25 +5029,25 @@ function generaCostoCostruzione() {
         border-radius: 4px;
         font-size: 1.2rem;
       }
-      #costo-costruzione-content .oneri-urbanizzazione-riga {
+      .costo-scenario-panel .oneri-urbanizzazione-riga {
         align-items: flex-end;
       }
-      #costo-costruzione-content .oneri-cella {
+      .costo-scenario-panel .oneri-cella {
         min-width: 120px;
       }
-      #costo-costruzione-content .oneri-cella-volume {
+      .costo-scenario-panel .oneri-cella-volume {
         min-width: 180px;
       }
-      #costo-costruzione-content .oneri-cella-finale {
+      .costo-scenario-panel .oneri-cella-finale {
         min-width: 200px;
       }
-      #costo-costruzione-content .oneri-input {
+      .costo-scenario-panel .oneri-input {
         width: 120px;
       }
-      #costo-costruzione-content .oneri-input-volume {
+      .costo-scenario-panel .oneri-input-volume {
         width: 180px;
       }
-      #costo-costruzione-content .oneri-operator-cell {
+      .costo-scenario-panel .oneri-operator-cell {
         display: flex;
         align-items: center;
         justify-content: center;
@@ -4335,12 +5055,16 @@ function generaCostoCostruzione() {
         width: 1.5rem;
         flex-shrink: 0;
       }
-      #costo-costruzione-content .oneri-operator {
+      .costo-scenario-panel .oneri-operator {
         font-size: 1.2rem;
         font-weight: bold;
       }
     </style>
     
+    <div class="alert alert-info costo-scenario-banner py-2 mb-3">
+      Scenario <strong>${scenarioLabel}</strong>: nel calcolo entrano solo i locali con spunta <strong>${scenarioLabel}</strong>.
+    </div>
+
     <!-- Pulsante Stampa -->
     <div class="d-flex justify-content-end mb-3">
       <button id="btn-stampa-costo-costruzione" class="btn btn-success btn-sm">STAMPA</button>
@@ -4761,57 +5485,57 @@ function generaCostoCostruzione() {
           <tr data-classe-range="I,II,III">
             <td>classi I, II, III</td>
             <td class="text-center" style="background-color: #ffff00;">
-              <input type="radio" name="percentuale-contributo" value="7" class="form-check-input percentuale-radio" data-tipo="nuove" data-comune=">50k" data-classe="I,II,III">
+              <input type="radio" name="${nomeRadioPercentuale}" value="7" class="form-check-input percentuale-radio" data-tipo="nuove" data-comune=">50k" data-classe="I,II,III">
               <span class="ms-2">7</span>
             </td>
             <td class="text-center" style="background-color: #ffff00;">
-              <input type="radio" name="percentuale-contributo" value="5" class="form-check-input percentuale-radio" data-tipo="esistenti" data-comune=">50k" data-classe="I,II,III">
+              <input type="radio" name="${nomeRadioPercentuale}" value="5" class="form-check-input percentuale-radio" data-tipo="esistenti" data-comune=">50k" data-classe="I,II,III">
               <span class="ms-2">5</span>
             </td>
             <td class="text-center" style="background-color: #ffff00;">
-              <input type="radio" name="percentuale-contributo" value="6" class="form-check-input percentuale-radio" data-tipo="nuove" data-comune="<50k" data-classe="I,II,III">
+              <input type="radio" name="${nomeRadioPercentuale}" value="6" class="form-check-input percentuale-radio" data-tipo="nuove" data-comune="<50k" data-classe="I,II,III">
               <span class="ms-2">6</span>
             </td>
             <td class="text-center" style="background-color: #ffff00;">
-              <input type="radio" name="percentuale-contributo" value="5" class="form-check-input percentuale-radio" data-tipo="esistenti" data-comune="<50k" data-classe="I,II,III">
+              <input type="radio" name="${nomeRadioPercentuale}" value="5" class="form-check-input percentuale-radio" data-tipo="esistenti" data-comune="<50k" data-classe="I,II,III">
               <span class="ms-2">5</span>
             </td>
           </tr>
           <tr data-classe-range="IV,V,VI,VII,VIII">
             <td>classi IV, V, VI, VII, VIII</td>
             <td class="text-center" style="background-color: #ffff00;">
-              <input type="radio" name="percentuale-contributo" value="10" class="form-check-input percentuale-radio" data-tipo="nuove" data-comune=">50k" data-classe="IV,V,VI,VII,VIII">
+              <input type="radio" name="${nomeRadioPercentuale}" value="10" class="form-check-input percentuale-radio" data-tipo="nuove" data-comune=">50k" data-classe="IV,V,VI,VII,VIII">
               <span class="ms-2">10</span>
             </td>
             <td class="text-center" style="background-color: #ffff00;">
-              <input type="radio" name="percentuale-contributo" value="6" class="form-check-input percentuale-radio" data-tipo="esistenti" data-comune=">50k" data-classe="IV,V,VI,VII,VIII">
+              <input type="radio" name="${nomeRadioPercentuale}" value="6" class="form-check-input percentuale-radio" data-tipo="esistenti" data-comune=">50k" data-classe="IV,V,VI,VII,VIII">
               <span class="ms-2">6</span>
             </td>
             <td class="text-center" style="background-color: #ffff00;">
-              <input type="radio" name="percentuale-contributo" value="8" class="form-check-input percentuale-radio" data-tipo="nuove" data-comune="<50k" data-classe="IV,V,VI,VII,VIII">
+              <input type="radio" name="${nomeRadioPercentuale}" value="8" class="form-check-input percentuale-radio" data-tipo="nuove" data-comune="<50k" data-classe="IV,V,VI,VII,VIII">
               <span class="ms-2">8</span>
             </td>
             <td class="text-center" style="background-color: #ffff00;">
-              <input type="radio" name="percentuale-contributo" value="6" class="form-check-input percentuale-radio" data-tipo="esistenti" data-comune="<50k" data-classe="IV,V,VI,VII,VIII">
+              <input type="radio" name="${nomeRadioPercentuale}" value="6" class="form-check-input percentuale-radio" data-tipo="esistenti" data-comune="<50k" data-classe="IV,V,VI,VII,VIII">
               <span class="ms-2">6</span>
             </td>
           </tr>
           <tr data-classe-range="IX,X,XI">
             <td>classi IX, X, XI</td>
             <td class="text-center" style="background-color: #ffff00;">
-              <input type="radio" name="percentuale-contributo" value="20" class="form-check-input percentuale-radio" data-tipo="nuove" data-comune=">50k" data-classe="IX,X,XI">
+              <input type="radio" name="${nomeRadioPercentuale}" value="20" class="form-check-input percentuale-radio" data-tipo="nuove" data-comune=">50k" data-classe="IX,X,XI">
               <span class="ms-2">20</span>
             </td>
             <td class="text-center" style="background-color: #ffff00;">
-              <input type="radio" name="percentuale-contributo" value="15" class="form-check-input percentuale-radio" data-tipo="esistenti" data-comune=">50k" data-classe="IX,X,XI">
+              <input type="radio" name="${nomeRadioPercentuale}" value="15" class="form-check-input percentuale-radio" data-tipo="esistenti" data-comune=">50k" data-classe="IX,X,XI">
               <span class="ms-2">15</span>
             </td>
             <td class="text-center" style="background-color: #ffff00;">
-              <input type="radio" name="percentuale-contributo" value="18" class="form-check-input percentuale-radio" data-tipo="nuove" data-comune="<50k" data-classe="IX,X,XI">
+              <input type="radio" name="${nomeRadioPercentuale}" value="18" class="form-check-input percentuale-radio" data-tipo="nuove" data-comune="<50k" data-classe="IX,X,XI">
               <span class="ms-2">18</span>
             </td>
             <td class="text-center" style="background-color: #ffff00;">
-              <input type="radio" name="percentuale-contributo" value="10" class="form-check-input percentuale-radio" data-tipo="esistenti" data-comune="<50k" data-classe="IX,X,XI">
+              <input type="radio" name="${nomeRadioPercentuale}" value="10" class="form-check-input percentuale-radio" data-tipo="esistenti" data-comune="<50k" data-classe="IX,X,XI">
               <span class="ms-2">10</span>
             </td>
           </tr>
@@ -4936,7 +5660,7 @@ function generaCostoCostruzione() {
     { id: 'costo-sezione-oneri', label: 'Oneri di urbanizzazione' },
     { id: 'costo-sezione-riepilogo', label: 'Riepilogo costi' }
   ];
-  const sidebarList = document.getElementById('sidebar-costo-costruzione-list');
+  const sidebarList = document.getElementById('sidebar-costo-list');
   if (sidebarList) {
     sidebarList.innerHTML = sezioniCosto.map(s => {
       if (s.id === 'costo-sezione-calcolo-costo') {
@@ -5043,8 +5767,13 @@ function generaCostoCostruzione() {
       }
     }
     
-    // Leggi la percentuale regionale selezionata
-    const percentualeRadioSelezionato = container.querySelector('input[name="percentuale-contributo"]:checked');
+    // Leggi la percentuale regionale selezionata (fallback su modello se i radio non sono nel container)
+    let percentualeRadioSelezionato = container.querySelector(`input[name="${nomeRadioPercentuale}"]:checked`);
+    if (!percentualeRadioSelezionato && dataModel.costoCostruzione?.percentualeContributo != null) {
+      percentualeRadioSelezionato = container.querySelector(
+        `input[name="${nomeRadioPercentuale}"][value="${dataModel.costoCostruzione.percentualeContributo}"]`
+      );
+    }
     const percentualeRegionale = percentualeRadioSelezionato ? parseFloat(percentualeRadioSelezionato.value) || 0 : 0;
     
     // Aggiorna i valori nella formula
@@ -5295,7 +6024,7 @@ function generaCostoCostruzione() {
     const smaltimentoRifiutiInput = container.querySelector('#smaltimento-rifiuti-input');
     const volumeOneriInput = container.querySelector('#volume-oneri-input');
     const inc3Value = container.querySelector('#inc3-value');
-    const percentualeRadioSelezionato = container.querySelector('input[name="percentuale-contributo"]:checked');
+    const percentualeRadioSelezionato = container.querySelector(`input[name="${nomeRadioPercentuale}"]:checked`);
     
     if (dataModel.costoCostruzione) {
       if (costoMqInput) dataModel.costoCostruzione.costoMq = costoMqInput.value || '0,00';
@@ -5400,7 +6129,7 @@ function generaCostoCostruzione() {
     }
     
     // Ripristina la percentuale contributo selezionata (anche se è null, per resettare la selezione)
-    const percentualeRadio = container.querySelector(`input[name="percentuale-contributo"][value="${dataModel.costoCostruzione.percentualeContributo}"]`);
+    const percentualeRadio = container.querySelector(`input[name="${nomeRadioPercentuale}"][value="${dataModel.costoCostruzione.percentualeContributo}"]`);
     if (percentualeRadio && dataModel.costoCostruzione.percentualeContributo) {
       percentualeRadio.checked = true;
       // Aggiorna lo sfondo verde
@@ -5416,7 +6145,7 @@ function generaCostoCostruzione() {
       }
     } else if (dataModel.costoCostruzione.percentualeContributo === null) {
       // Se la percentuale è null, deseleziona tutti i radio
-      const allPercentualiRadios = container.querySelectorAll('input[name="percentuale-contributo"]');
+      const allPercentualiRadios = container.querySelectorAll(`input[name="${nomeRadioPercentuale}"]`);
       allPercentualiRadios.forEach(radio => {
         radio.checked = false;
         const row = radio.closest('tr');
@@ -5469,16 +6198,6 @@ function generaCostoCostruzione() {
   
   // Calcola il contributo costo di costruzione iniziale
   calcolaContributoCostoCostruzione();
-  
-  // Forza il ricalcolo dopo il caricamento dei dati per assicurarsi che tutti i valori siano aggiornati
-  // Usa setTimeout per assicurarsi che il DOM sia completamente aggiornato
-  setTimeout(() => {
-    calcolaCostoCostruzione();
-    calcolaContributoCostoCostruzione();
-    calcolaOneriUrbanizzazione();
-    aggiornaRiepilogoCosti();
-    aggiornaSidebarCostoMq();
-  }, 100);
   
   // Funzione per calcolare gli oneri di urbanizzazione
   const calcolaOneriUrbanizzazione = () => {
@@ -5628,7 +6347,7 @@ function generaCostoCostruzione() {
       const costoCostruzioneTotale = costoCostruzioneTotaleElement ? parseItalianNumber(costoCostruzioneTotaleElement.textContent.replace(/\./g, '')) || 0 : 0;
       
       // Leggi la percentuale selezionata e il contributo
-      const percentualeRadioSelezionato = container.querySelector('input[name="percentuale-contributo"]:checked');
+      const percentualeRadioSelezionato = container.querySelector(`input[name="${nomeRadioPercentuale}"]:checked`);
       const percentualeSelezionata = percentualeRadioSelezionato ? parseFloat(percentualeRadioSelezionato.value) || 0 : 0;
       const percentualeRow = percentualeRadioSelezionato ? percentualeRadioSelezionato.closest('tr') : null;
       const classeRange = percentualeRow ? percentualeRow.getAttribute('data-classe-range') || '' : '';
@@ -5697,6 +6416,23 @@ function generaCostoCostruzione() {
       });
     });
   }
+
+  // Calcolo finale: deve avvenire dopo tutte le definizioni (il vecchio setTimeout a 100 ms
+  // partiva troppo presto e poteva chiamare onComplete mentre la funzione era ancora in esecuzione).
+  const eseguiCalcoloFinaleCosto = () => {
+    try {
+      calcolaCostoCostruzione();
+      calcolaContributoCostoCostruzione();
+      calcolaOneriUrbanizzazione();
+      aggiornaRiepilogoCosti();
+      aggiornaSidebarCostoMq();
+      aggiornaMetricheCostoDaContainer(container, scenario, su, snr, stNonResidenziale);
+    } catch (err) {
+      console.error('Errore calcolo costo:', err);
+    }
+    if (typeof onComplete === 'function') onComplete();
+  };
+  eseguiCalcoloFinaleCosto();
 }
 
 // Funzione per stampare il costo di costruzione su A4 verticale
@@ -6531,6 +7267,28 @@ function injectRiepilogoPrintStyles() {
         #btn-riepilogo-stampa-pdf, #btn-riepilogo-export-excel { 
           display: none !important; 
         }
+        #riepilogo-superfici-content .totale-piano-row,
+        #riepilogo-superfici-content .totale-edificio-row {
+          display: none !important;
+          visibility: hidden !important;
+          height: 0 !important;
+          padding: 0 !important;
+          margin: 0 !important;
+          border: none !important;
+        }
+        #riepilogo-superfici-content .totale-piano-row td,
+        #riepilogo-superfici-content .totale-edificio-row td {
+          display: none !important;
+          visibility: hidden !important;
+          height: 0 !important;
+          padding: 0 !important;
+          margin: 0 !important;
+          border: none !important;
+        }
+        #riepilogo-superfici-content table {
+          table-layout: fixed !important;
+          border-collapse: collapse !important;
+        }
       }
     `;
     document.head.appendChild(style);
@@ -6586,6 +7344,28 @@ function injectRiepilogoNonResidenzialiPrintStyles() {
         #btn-riepilogo-non-residenziali-stampa-pdf, #btn-riepilogo-non-residenziali-export-excel { 
           display: none !important; 
         }
+        #riepilogo-superfici-non-residenziali-content .totale-piano-row,
+        #riepilogo-superfici-non-residenziali-content .totale-edificio-row {
+          display: none !important;
+          visibility: hidden !important;
+          height: 0 !important;
+          padding: 0 !important;
+          margin: 0 !important;
+          border: none !important;
+        }
+        #riepilogo-superfici-non-residenziali-content .totale-piano-row td,
+        #riepilogo-superfici-non-residenziali-content .totale-edificio-row td {
+          display: none !important;
+          visibility: hidden !important;
+          height: 0 !important;
+          padding: 0 !important;
+          margin: 0 !important;
+          border: none !important;
+        }
+        #riepilogo-superfici-non-residenziali-content table {
+          table-layout: fixed !important;
+          border-collapse: collapse !important;
+        }
       }
     `;
     document.head.appendChild(style);
@@ -6595,6 +7375,7 @@ function injectRiepilogoNonResidenzialiPrintStyles() {
 function printRiepilogoSuperfici() {
   // Assicurati che il riepilogo sia generato
   generaRiepilogoSuperfici();
+  
   injectRiepilogoPrintStyles();
   setTimeout(() => window.print(), 50);
 }
@@ -6602,8 +7383,25 @@ function printRiepilogoSuperfici() {
 function printRiepilogoSuperficiNonResidenziali() {
   // Assicurati che il riepilogo sia generato
   generaRiepilogoSuperficiNonResidenziali();
+  
+  // Rimuovi le righe TOTALE PIANO e TOTALE EDIFICIO prima della stampa
+  const container = document.getElementById('riepilogo-superfici-non-residenziali-content');
+  if (container) {
+    const totalePianoRows = Array.from(container.querySelectorAll('.totale-piano-row'));
+    const totaleEdificioRows = Array.from(container.querySelectorAll('.totale-edificio-row'));
+    
+    // Rimuovi le righe (il browser ricalcolerà automaticamente i rowspan)
+    totalePianoRows.forEach(row => row.remove());
+    totaleEdificioRows.forEach(row => row.remove());
+  }
+  
   injectRiepilogoNonResidenzialiPrintStyles();
   setTimeout(() => window.print(), 50);
+  
+  // Rigenera il riepilogo dopo la stampa per ripristinare le righe rimosse
+  setTimeout(() => {
+    generaRiepilogoSuperficiNonResidenziali();
+  }, 1000);
 }
 
 // Esportazione Excel Riepilogo Superfici Residenziali
@@ -6684,8 +7482,8 @@ async function exportRiepilogoSuperficiNonResidenzialiExcel() {
 
 // Genera contenuto Excel per i riepiloghi
 function generateRiepilogoExcelContent(edifici, isResidenziale) {
-  // Raccogli tutti i locali con le loro informazioni, raggruppati per unità (edificio) e tipologia
-  const localiPerUnitaETipologia = {};
+  // Raccogli tutti i locali con le loro informazioni, raggruppati per unità (edificio), piano e tipologia
+  const localiPerUnitaPianoTipologia = {};
   const tipologieFiltro = isResidenziale ? TIPOLOGIE_RESIDENZIALI : TIPOLOGIE_NON_RESIDENZIALI;
   const titolo = isResidenziale ? 'RIEPILOGO SUPERFICI PER TIPOLOGIA RESIDENZIALE' : 'RIEPILOGO SUPERFICI NON RESIDENZIALI';
   
@@ -6693,12 +7491,17 @@ function generateRiepilogoExcelContent(edifici, isResidenziale) {
     if (!edificio.piani || !Array.isArray(edificio.piani)) return;
     const nomeEdificio = edificio.nome || 'Edificio senza nome';
     
-    if (!localiPerUnitaETipologia[nomeEdificio]) {
-      localiPerUnitaETipologia[nomeEdificio] = {};
+    if (!localiPerUnitaPianoTipologia[nomeEdificio]) {
+      localiPerUnitaPianoTipologia[nomeEdificio] = {};
     }
     
     edificio.piani.forEach(piano => {
       if (!piano.locali || !Array.isArray(piano.locali)) return;
+      const nomePiano = piano.nome || 'Piano senza nome';
+      
+      if (!localiPerUnitaPianoTipologia[nomeEdificio][nomePiano]) {
+        localiPerUnitaPianoTipologia[nomeEdificio][nomePiano] = {};
+      }
       
       piano.locali.forEach(locale => {
         const tipologia = locale.tipologiaSuperficie || 'Non specificata';
@@ -6721,20 +7524,20 @@ function generateRiepilogoExcelContent(edifici, isResidenziale) {
           return;
         }
         
-        if (!localiPerUnitaETipologia[nomeEdificio][tipologia]) {
-          localiPerUnitaETipologia[nomeEdificio][tipologia] = {
+        if (!localiPerUnitaPianoTipologia[nomeEdificio][nomePiano][tipologia]) {
+          localiPerUnitaPianoTipologia[nomeEdificio][nomePiano][tipologia] = {
             locali: [],
             somma: 0
           };
         }
         
-        localiPerUnitaETipologia[nomeEdificio][tipologia].locali.push({
+        localiPerUnitaPianoTipologia[nomeEdificio][nomePiano][tipologia].locali.push({
           nome: locale.nome || 'Locale senza nome',
           superficie: superficie,
           specificaSuperficie: locale.specificaSuperficie || ''
         });
         
-        localiPerUnitaETipologia[nomeEdificio][tipologia].somma += superficie;
+        localiPerUnitaPianoTipologia[nomeEdificio][nomePiano][tipologia].somma += superficie;
       });
     });
   });
@@ -6749,6 +7552,8 @@ table { border-collapse: collapse; width: 100%; }
 th, td { border: 1px solid #000; padding: 4px; text-align: center; }
 th { background-color: #cfe2ff; font-weight: bold; }
 .table-secondary td { background-color: #e9ecef; font-weight: bold; }
+.table-info td { background-color: #d1ecf1; font-weight: bold; }
+.table-warning td { background-color: #fff3cd; font-weight: bold; }
 </style>
 </head>
 <body>
@@ -6756,6 +7561,7 @@ th { background-color: #cfe2ff; font-weight: bold; }
 <thead>
 <tr>
 <th>UNITA</th>
+<th>PIANO</th>
 <th>TIPOLOGIA</th>
 <th>LOCALE</th>
 <th>SPECIFICA SUPERFICIE</th>
@@ -6765,99 +7571,183 @@ th { background-color: #cfe2ff; font-weight: bold; }
 <tbody>`;
 
   // Itera per ogni unità (edificio)
-  Object.keys(localiPerUnitaETipologia).forEach(nomeEdificio => {
-    const tipologieUnita = localiPerUnitaETipologia[nomeEdificio];
+  Object.keys(localiPerUnitaPianoTipologia).forEach(nomeEdificio => {
+    const pianiEdificio = localiPerUnitaPianoTipologia[nomeEdificio];
     
-    // Separa ABITAZIONE, ACCESSORIO ABITAZIONE e altre tipologie (solo per residenziali)
-    const tipologieAbitazione = [];
-    const altreTipologie = [];
+    // Calcola il numero totale di righe per questo edificio (tutti i piani)
+    let totaleRigheEdificio = 0;
+    const pianiConDati = [];
     
-    Object.keys(tipologieUnita).forEach(tipologia => {
-      if (isResidenziale && (tipologia === 'ABITAZIONE' || tipologia === 'ACCESSORIO ABITAZIONE')) {
-        tipologieAbitazione.push(tipologia);
-      } else {
-        altreTipologie.push(tipologia);
-      }
-    });
-    
-    // Ordina ABITAZIONE prima di ACCESSORIO ABITAZIONE (solo per residenziali)
-    if (isResidenziale) {
-      tipologieAbitazione.sort((a, b) => {
-        if (a === 'ABITAZIONE') return -1;
-        if (b === 'ABITAZIONE') return 1;
-        return 0;
-      });
-    }
-    
-    // Ordina le altre tipologie alfabeticamente
-    altreTipologie.sort((a, b) => a.localeCompare(b));
-    
-    // Calcola il numero totale di righe per questa unità
-    let totaleRighe = 0;
-    if (isResidenziale) {
-      tipologieAbitazione.forEach(tipologia => {
-        const dati = tipologieUnita[tipologia];
+    Object.keys(pianiEdificio).forEach(nomePiano => {
+      const tipologiePiano = pianiEdificio[nomePiano];
+      let righePiano = 0;
+      
+      // Conta le righe per questo piano (locali + somme tipologie)
+      Object.keys(tipologiePiano).forEach(tipologia => {
+        const dati = tipologiePiano[tipologia];
         if (dati.locali.length > 0 && dati.somma > 0) {
-          totaleRighe += dati.locali.length + 1;
+          righePiano += dati.locali.length + 1; // +1 per la riga di somma tipologia
         }
       });
-    }
-    altreTipologie.forEach(tipologia => {
-      const dati = tipologieUnita[tipologia];
-      if (dati.locali.length > 0 && dati.somma > 0) {
-        totaleRighe += dati.locali.length + 1;
+      
+      // Se ci sono tipologie con dati, aggiungi questo piano
+      // Per residenziali: non aggiungere riga TOTALE PIANO
+      if (righePiano > 0) {
+        if (!isResidenziale) {
+          // Per non residenziali, aggiungi 1 per la riga TOTALE PIANO
+          righePiano += 1;
+        }
+        totaleRigheEdificio += righePiano;
+        pianiConDati.push({ nomePiano, righePiano, tipologiePiano });
       }
     });
     
-    if (totaleRighe === 0) {
+    // Se non ci sono righe da mostrare, salta questo edificio
+    if (totaleRigheEdificio === 0) {
       return;
     }
     
-    let primaRiga = true;
-    
-    // Per residenziali: mostra ABITAZIONE e ACCESSORIO ABITAZIONE prima
+    // Per residenziali: calcola i totali per tipologia per edificio
+    let totaliTipologieEdificio = {};
     if (isResidenziale) {
-      if (tipologieAbitazione.includes('ABITAZIONE')) {
-        const dati = tipologieUnita['ABITAZIONE'];
-        if (dati.locali.length > 0 && dati.somma > 0) {
-          dati.locali.forEach((locale, index) => {
-            if (primaRiga) {
-              html += `<tr><td rowspan="${totaleRighe}">${escapeHtml(nomeEdificio)}</td><td>ABITAZIONE</td><td>${escapeHtml(locale.nome)}</td><td>${escapeHtml(locale.specificaSuperficie)}</td><td>${formatItalianNumber(locale.superficie)}</td></tr>`;
-              primaRiga = false;
-            } else {
-              html += `<tr><td>ABITAZIONE</td><td>${escapeHtml(locale.nome)}</td><td>${escapeHtml(locale.specificaSuperficie)}</td><td>${formatItalianNumber(locale.superficie)}</td></tr>`;
+      // Calcola i totali per tipologia sommando tutti i piani
+      pianiConDati.forEach(({ tipologiePiano }) => {
+        Object.keys(tipologiePiano).forEach(tipologia => {
+          const dati = tipologiePiano[tipologia];
+          if (dati.locali.length > 0 && dati.somma > 0) {
+            if (!totaliTipologieEdificio[tipologia]) {
+              totaliTipologieEdificio[tipologia] = 0;
             }
-          });
-          html += `<tr class="table-secondary"><td><strong>SOMMA ABITAZIONE</strong></td><td></td><td></td><td><strong>${formatItalianNumber(dati.somma)}</strong></td></tr>`;
-        }
-      }
-      
-      if (tipologieAbitazione.includes('ACCESSORIO ABITAZIONE')) {
-        const dati = tipologieUnita['ACCESSORIO ABITAZIONE'];
-        if (dati.locali.length > 0 && dati.somma > 0) {
-          dati.locali.forEach(locale => {
-            html += `<tr><td>ACCESSORIO ABITAZIONE</td><td>${escapeHtml(locale.nome)}</td><td>${escapeHtml(locale.specificaSuperficie)}</td><td>${formatItalianNumber(locale.superficie)}</td></tr>`;
-          });
-          html += `<tr class="table-secondary"><td><strong>SOMMA ACCESSORIO ABITAZIONE</strong></td><td></td><td></td><td><strong>${formatItalianNumber(dati.somma)}</strong></td></tr>`;
-        }
-      }
+            totaliTipologieEdificio[tipologia] += dati.somma;
+          }
+        });
+      });
+      // Aggiungi le righe per i totali tipologie edificio
+      totaleRigheEdificio += Object.keys(totaliTipologieEdificio).length;
+    } else {
+      // Per non residenziali, aggiungi 1 riga per il TOTALE EDIFICIO alla fine
+      totaleRigheEdificio += 1;
     }
     
-    // Mostra le altre tipologie
-    altreTipologie.forEach(tipologia => {
-      const dati = tipologieUnita[tipologia];
-      if (dati.locali.length > 0 && dati.somma > 0) {
+    let primaRigaEdificio = true;
+    let totaleEdificio = 0;
+    
+    // Itera per ogni piano dell'edificio
+    pianiConDati.forEach(({ nomePiano, righePiano, tipologiePiano }) => {
+      // Separa ABITAZIONE, ACCESSORIO ABITAZIONE e altre tipologie (solo per residenziali)
+      const tipologieAbitazione = [];
+      const altreTipologie = [];
+      
+      Object.keys(tipologiePiano).forEach(tipologia => {
+        const dati = tipologiePiano[tipologia];
+        if (dati.locali.length > 0 && dati.somma > 0) {
+          if (isResidenziale && (tipologia === 'ABITAZIONE' || tipologia === 'ACCESSORIO ABITAZIONE')) {
+            tipologieAbitazione.push(tipologia);
+          } else {
+            altreTipologie.push(tipologia);
+          }
+        }
+      });
+      
+      // Ordina ABITAZIONE prima di ACCESSORIO ABITAZIONE (solo per residenziali)
+      if (isResidenziale) {
+        tipologieAbitazione.sort((a, b) => {
+          if (a === 'ABITAZIONE') return -1;
+          if (b === 'ABITAZIONE') return 1;
+          return 0;
+        });
+      }
+      
+      // Ordina le altre tipologie alfabeticamente
+      altreTipologie.sort((a, b) => a.localeCompare(b));
+      
+      let primaRigaPiano = true;
+      let totalePiano = 0;
+      
+      // Mostra ABITAZIONE (solo per residenziali)
+      if (isResidenziale && tipologieAbitazione.includes('ABITAZIONE')) {
+        const dati = tipologiePiano['ABITAZIONE'];
         dati.locali.forEach((locale, index) => {
-          if (primaRiga) {
-            html += `<tr><td rowspan="${totaleRighe}">${escapeHtml(nomeEdificio)}</td><td>${escapeHtml(tipologia)}</td><td>${escapeHtml(locale.nome)}</td><td>${escapeHtml(locale.specificaSuperficie)}</td><td>${formatItalianNumber(locale.superficie)}</td></tr>`;
-            primaRiga = false;
+          if (primaRigaEdificio && primaRigaPiano) {
+            html += `<tr><td rowspan="${totaleRigheEdificio}">${escapeHtml(nomeEdificio)}</td><td rowspan="${righePiano}">${escapeHtml(nomePiano)}</td><td>ABITAZIONE</td><td>${escapeHtml(locale.nome)}</td><td>${escapeHtml(locale.specificaSuperficie)}</td><td>${formatItalianNumber(locale.superficie)}</td></tr>`;
+            primaRigaEdificio = false;
+            primaRigaPiano = false;
+          } else if (primaRigaPiano) {
+            html += `<tr><td rowspan="${righePiano}">${escapeHtml(nomePiano)}</td><td>ABITAZIONE</td><td>${escapeHtml(locale.nome)}</td><td>${escapeHtml(locale.specificaSuperficie)}</td><td>${formatItalianNumber(locale.superficie)}</td></tr>`;
+            primaRigaPiano = false;
+          } else {
+            html += `<tr><td>ABITAZIONE</td><td>${escapeHtml(locale.nome)}</td><td>${escapeHtml(locale.specificaSuperficie)}</td><td>${formatItalianNumber(locale.superficie)}</td></tr>`;
+          }
+        });
+        html += `<tr class="table-secondary"><td><strong>SOMMA ABITAZIONE</strong></td><td></td><td></td><td><strong>${formatItalianNumber(dati.somma)}</strong></td></tr>`;
+        totalePiano += dati.somma;
+      }
+      
+      // Mostra ACCESSORIO ABITAZIONE (solo per residenziali)
+      if (isResidenziale && tipologieAbitazione.includes('ACCESSORIO ABITAZIONE')) {
+        const dati = tipologiePiano['ACCESSORIO ABITAZIONE'];
+        dati.locali.forEach((locale, index) => {
+          if (primaRigaPiano) {
+            if (primaRigaEdificio) {
+              html += `<tr><td rowspan="${totaleRigheEdificio}">${escapeHtml(nomeEdificio)}</td><td rowspan="${righePiano}">${escapeHtml(nomePiano)}</td><td>ACCESSORIO ABITAZIONE</td><td>${escapeHtml(locale.nome)}</td><td>${escapeHtml(locale.specificaSuperficie)}</td><td>${formatItalianNumber(locale.superficie)}</td></tr>`;
+              primaRigaEdificio = false;
+            } else {
+              html += `<tr><td rowspan="${righePiano}">${escapeHtml(nomePiano)}</td><td>ACCESSORIO ABITAZIONE</td><td>${escapeHtml(locale.nome)}</td><td>${escapeHtml(locale.specificaSuperficie)}</td><td>${formatItalianNumber(locale.superficie)}</td></tr>`;
+            }
+            primaRigaPiano = false;
+          } else {
+            html += `<tr><td>ACCESSORIO ABITAZIONE</td><td>${escapeHtml(locale.nome)}</td><td>${escapeHtml(locale.specificaSuperficie)}</td><td>${formatItalianNumber(locale.superficie)}</td></tr>`;
+          }
+        });
+        html += `<tr class="table-secondary"><td><strong>SOMMA ACCESSORIO ABITAZIONE</strong></td><td></td><td></td><td><strong>${formatItalianNumber(dati.somma)}</strong></td></tr>`;
+        totalePiano += dati.somma;
+      }
+      
+      // Mostra le altre tipologie
+      altreTipologie.forEach(tipologia => {
+        const dati = tipologiePiano[tipologia];
+        dati.locali.forEach((locale, index) => {
+          if (primaRigaEdificio && primaRigaPiano) {
+            html += `<tr><td rowspan="${totaleRigheEdificio}">${escapeHtml(nomeEdificio)}</td><td rowspan="${righePiano}">${escapeHtml(nomePiano)}</td><td>${escapeHtml(tipologia)}</td><td>${escapeHtml(locale.nome)}</td><td>${escapeHtml(locale.specificaSuperficie)}</td><td>${formatItalianNumber(locale.superficie)}</td></tr>`;
+            primaRigaEdificio = false;
+            primaRigaPiano = false;
+          } else if (primaRigaPiano) {
+            html += `<tr><td rowspan="${righePiano}">${escapeHtml(nomePiano)}</td><td>${escapeHtml(tipologia)}</td><td>${escapeHtml(locale.nome)}</td><td>${escapeHtml(locale.specificaSuperficie)}</td><td>${formatItalianNumber(locale.superficie)}</td></tr>`;
+            primaRigaPiano = false;
           } else {
             html += `<tr><td>${escapeHtml(tipologia)}</td><td>${escapeHtml(locale.nome)}</td><td>${escapeHtml(locale.specificaSuperficie)}</td><td>${formatItalianNumber(locale.superficie)}</td></tr>`;
           }
         });
         html += `<tr class="table-secondary"><td><strong>SOMMA ${escapeHtml(tipologia.toUpperCase())}</strong></td><td></td><td></td><td><strong>${formatItalianNumber(dati.somma)}</strong></td></tr>`;
+        totalePiano += dati.somma;
+      });
+      
+      // Riga TOTALE PIANO (solo per non residenziali)
+      if (!isResidenziale) {
+        html += `<tr class="table-info"><td><strong>TOTALE PIANO ${escapeHtml(nomePiano)}</strong></td><td></td><td></td><td><strong>${formatItalianNumber(totalePiano)}</strong></td></tr>`;
       }
+      totaleEdificio += totalePiano;
     });
+    
+    // Per residenziali: aggiungi le righe di totale per tipologia per edificio
+    if (isResidenziale) {
+      // Ordina le tipologie: prima ABITAZIONE e ACCESSORIO ABITAZIONE, poi le altre alfabeticamente
+      const tipologieOrdinate = Object.keys(totaliTipologieEdificio).sort((a, b) => {
+        if (a === 'ABITAZIONE') return -1;
+        if (b === 'ABITAZIONE') return 1;
+        if (a === 'ACCESSORIO ABITAZIONE' && b !== 'ABITAZIONE') return -1;
+        if (b === 'ACCESSORIO ABITAZIONE' && a !== 'ABITAZIONE') return 1;
+        return a.localeCompare(b);
+      });
+      
+      tipologieOrdinate.forEach(tipologia => {
+        const totaleTipologia = totaliTipologieEdificio[tipologia];
+        html += `<tr class="table-warning"><td colspan="2"><strong>TOTALE ${escapeHtml(tipologia.toUpperCase())} ${escapeHtml(nomeEdificio)}</strong></td><td></td><td></td><td><strong>${formatItalianNumber(totaleTipologia)}</strong></td></tr>`;
+      });
+    } else {
+      // Riga TOTALE EDIFICIO (solo per non residenziali)
+      html += `<tr class="table-warning"><td><strong>TOTALE EDIFICIO ${escapeHtml(nomeEdificio)}</strong></td><td></td><td></td><td><strong>${formatItalianNumber(totaleEdificio)}</strong></td></tr>`;
+    }
   });
 
   html += `</tbody></table>`;
@@ -6912,19 +7802,22 @@ th { background-color: #cfe2ff; font-weight: bold; }
       'Box Col.': 0
     };
 
-    Object.keys(localiPerUnitaETipologia).forEach(nomeEdificio => {
-      const tipologieUnita = localiPerUnitaETipologia[nomeEdificio];
+    Object.keys(localiPerUnitaPianoTipologia).forEach(nomeEdificio => {
+      const pianiEdificio = localiPerUnitaPianoTipologia[nomeEdificio];
       
-      // Calcola la superficie totale di ABITAZIONE + ACCESSORIO ABITAZIONE
+      // Calcola la superficie totale di ABITAZIONE + ACCESSORIO ABITAZIONE sommando tutti i piani
       let superficieAbitazione = 0;
       let superficieAccessorio = 0;
       
-      if (tipologieUnita['ABITAZIONE']) {
-        superficieAbitazione = tipologieUnita['ABITAZIONE'].somma;
-      }
-      if (tipologieUnita['ACCESSORIO ABITAZIONE']) {
-        superficieAccessorio = tipologieUnita['ACCESSORIO ABITAZIONE'].somma;
-      }
+      Object.keys(pianiEdificio).forEach(nomePiano => {
+        const tipologiePiano = pianiEdificio[nomePiano];
+        if (tipologiePiano['ABITAZIONE']) {
+          superficieAbitazione += tipologiePiano['ABITAZIONE'].somma;
+        }
+        if (tipologiePiano['ACCESSORIO ABITAZIONE']) {
+          superficieAccessorio += tipologiePiano['ACCESSORIO ABITAZIONE'].somma;
+        }
+      });
       
       // Classifica in base alla classe di superficie usando SOLO ABITAZIONE (non ACCESSORIO)
       let classeSuperficie = '';
@@ -6950,16 +7843,41 @@ th { background-color: #cfe2ff; font-weight: bold; }
         conteggiColonne['>160']++;
       }
       
-      // Raccogli i totali per le altre tipologie
+      // Raccogli i totali per le altre tipologie sommando tutti i piani
       const totaliTipologie = {
-        'Accessori': tipologieUnita['ACCESSORIO ABITAZIONE'] ? tipologieUnita['ACCESSORIO ABITAZIONE'].somma : 0,
-        'Androni': tipologieUnita['ANDRONE'] ? tipologieUnita['ANDRONE'].somma : 0,
-        'Porticati': tipologieUnita['PORTICATO'] ? tipologieUnita['PORTICATO'].somma : 0,
-        'Logge': tipologieUnita['LOGGIA'] ? tipologieUnita['LOGGIA'].somma : 0,
-        'Balconi': tipologieUnita['BALCONE'] ? tipologieUnita['BALCONE'].somma : 0,
-        'Box Sing.': tipologieUnita['BOX SINGOLO'] ? tipologieUnita['BOX SINGOLO'].somma : 0,
-        'Box Col.': tipologieUnita['BOX COLLETTIVO'] ? tipologieUnita['BOX COLLETTIVO'].somma : 0
+        'Accessori': 0,
+        'Androni': 0,
+        'Porticati': 0,
+        'Logge': 0,
+        'Balconi': 0,
+        'Box Sing.': 0,
+        'Box Col.': 0
       };
+      
+      Object.keys(pianiEdificio).forEach(nomePiano => {
+        const tipologiePiano = pianiEdificio[nomePiano];
+        if (tipologiePiano['ACCESSORIO ABITAZIONE']) {
+          totaliTipologie['Accessori'] += tipologiePiano['ACCESSORIO ABITAZIONE'].somma;
+        }
+        if (tipologiePiano['ANDRONE']) {
+          totaliTipologie['Androni'] += tipologiePiano['ANDRONE'].somma;
+        }
+        if (tipologiePiano['PORTICATO']) {
+          totaliTipologie['Porticati'] += tipologiePiano['PORTICATO'].somma;
+        }
+        if (tipologiePiano['LOGGIA']) {
+          totaliTipologie['Logge'] += tipologiePiano['LOGGIA'].somma;
+        }
+        if (tipologiePiano['BALCONE']) {
+          totaliTipologie['Balconi'] += tipologiePiano['BALCONE'].somma;
+        }
+        if (tipologiePiano['BOX SINGOLO']) {
+          totaliTipologie['Box Sing.'] += tipologiePiano['BOX SINGOLO'].somma;
+        }
+        if (tipologiePiano['BOX COLLETTIVO']) {
+          totaliTipologie['Box Col.'] += tipologiePiano['BOX COLLETTIVO'].somma;
+        }
+      });
       
       // Aggiorna i totali delle colonne
       totaliColonne['Accessori'] += totaliTipologie['Accessori'];
@@ -7362,6 +8280,14 @@ window.generaRiepilogoSuperfici = generaRiepilogoSuperfici;
 window.generaRiepilogoSuperficiNonResidenziali = generaRiepilogoSuperficiNonResidenziali;
 window.statoApp = statoApp;
 window.mostraVista = mostraVista;
+window.rifrescaVisteCosto = function rifrescaVisteCosto() {
+  const v = statoApp.vistaCorrente;
+  if (v === 'confronto' || v === 'costo-dopo') {
+    generaVistaConfrontoCosto();
+  } else if (v === 'costo' || v === 'costo-prima' || v === 'costo-costruzione') {
+    generaCostoCostruzione();
+  }
+};
 
 const nuovoEdificioLocaliBtn = document.getElementById('btn-nuovo-edificio-locali');
 const nuovoPianoLocaliBtn = document.getElementById('btn-nuovo-piano-locali');
@@ -7464,6 +8390,7 @@ function generateExcelContent(edifici) {
     'L',
     'L/2',
     'Imp.',
+    'Hd',
     'Dimensioni apertura',
     'Calcolo superficie finestrata utile',
     'Sup. Fin. (m²)',
@@ -7478,7 +8405,7 @@ function generateExcelContent(edifici) {
     if (piani.length === 0) {
       rowsHtml += createExcelRow([
         edificio.nome,
-        '-', '-', '-', '', '0,00', '0,00', '0,000', '0,20', '0,00 × 0,00', '0,00×(0,00+(0,000:3))', '0,00', '0,00', '0,00'
+        '-', '-', '-', '', '0,00', '0,00', '0,000', '0,20', '0,00', '0,00 × 0,00', '0,00×(0,00+(0,000:3))', '0,00', '0,00', '0,00'
       ]);
       return;
     }
@@ -7489,7 +8416,7 @@ function generateExcelContent(edifici) {
         rowsHtml += createExcelRow([
           edificio.nome,
           piano.nome,
-          '-', '-', '', '0,00', '0,00', '0,000', '0,20', '0,00 × 0,00', '0,00×(0,00+(0,000:3))', '0,00', '0,00', '0,00'
+          '-', '-', '', '0,00', '0,00', '0,000', '0,20', '0,00', '0,00 × 0,00', '0,00×(0,00+(0,000:3))', '0,00', '0,00', '0,00'
         ]);
         return;
       }
@@ -7515,7 +8442,7 @@ function generateExcelContent(edifici) {
             tipologia,
             spec,
           formatItalianNumber(superficie),
-            '0,00', '0,000', '0,20', '0,00 × 0,00', '0,00×(0,00+(0,000:3))', '0,00', '0,00', `${formatItalianNumber(0)} < ${formatItalianNumber(rapportoRichiesto)}`
+            '0,00', '0,000', '0,20', '0,00', '0,00 × 0,00', '0,00×(0,00+(0,000:3))', '0,00', '0,00', `${formatItalianNumber(0)} < ${formatItalianNumber(rapportoRichiesto)}`
           ]);
           return;
         }
@@ -7530,6 +8457,7 @@ function generateExcelContent(edifici) {
           const L = parseItalianNumber(apertura.sporgenza || '0');
           const larghezza = parseItalianNumber(apertura.larghezza || '0');
           const H = parseItalianNumber(apertura.altezza || '0');
+          const hd = parseItalianNumber(apertura.hdavanzale || '0');
           const imp = parseItalianNumber(apertura.imposta || '0,20');
           const formulaStr = `${formatItalianNumber(larghezza)}×(${formatItalianNumber(calcoli.intero)}+(${formatItalianNumber(calcoli.unterzo,3)}:3))`;
 
@@ -7543,6 +8471,7 @@ function generateExcelContent(edifici) {
             formatItalianNumber(L),
             formatItalianNumber(calcoli.l2, 3),
             formatItalianNumber(imp),
+            formatItalianNumber(hd),
             `${formatItalianNumber(larghezza)} × ${formatItalianNumber(H)}`,
             formulaStr,
             formatItalianNumber(calcoli.areaFinestrata)

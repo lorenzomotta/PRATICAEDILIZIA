@@ -1,4 +1,5 @@
 // Modello dati per l'applicazione Pratica Edilizia
+import { normalizeAllLocalesInEdifici } from './locale-scenario.js';
 
 /**
  * Classe per gestire i dati dell'applicazione
@@ -40,6 +41,7 @@ export class DataModel {
         // Supporta sia il vecchio formato (solo array) che il nuovo formato (oggetto)
         if (Array.isArray(parsed)) {
           this.edifici = parsed;
+          normalizeAllLocalesInEdifici(this.edifici);
         } else {
           this.edifici = parsed.edifici || [];
           this.costoCostruzione = parsed.costoCostruzione || {
@@ -52,6 +54,7 @@ export class DataModel {
             percentualeContributo: null
           };
         }
+        normalizeAllLocalesInEdifici(this.edifici);
       }
     } catch (error) {
       console.error('Errore nel caricamento:', error);
@@ -230,6 +233,8 @@ export class DataModel {
         specificaSuperficie: datiLocale.specificaSuperficie || '',
         superficieUtile: datiLocale.superficieUtile || 0,
         aperture: datiLocale.aperture || [],
+        partecipaPrima: datiLocale.partecipaPrima !== undefined ? !!datiLocale.partecipaPrima : false,
+        partecipaDopo: datiLocale.partecipaDopo !== undefined ? !!datiLocale.partecipaDopo : true,
         createdAt: new Date().toISOString()
       };
       piano.locali.push(locale);
@@ -260,7 +265,9 @@ export class DataModel {
         rapportoRichiesto: datiLocale.rapportoRichiesto,
         specificaSuperficie: datiLocale.specificaSuperficie,
         superficieUtile: datiLocale.superficieUtile,
-        aperture: datiLocale.aperture
+        aperture: datiLocale.aperture,
+        partecipaPrima: datiLocale.partecipaPrima !== undefined ? !!datiLocale.partecipaPrima : locale.partecipaPrima,
+        partecipaDopo: datiLocale.partecipaDopo !== undefined ? !!datiLocale.partecipaDopo : locale.partecipaDopo
       });
       this.saveToStorage();
       return locale;
@@ -301,6 +308,45 @@ export class DataModel {
       edificioNome: edificio.nome,
       pianoId,
       pianoNome: piano.nome,
+      aperture: Array.isArray(localeOrigine.aperture)
+        ? JSON.parse(JSON.stringify(localeOrigine.aperture))
+        : [],
+      createdAt: new Date().toISOString()
+    };
+
+    piano.locali.push(nuovoLocale);
+    this.saveToStorage();
+    return nuovoLocale;
+  }
+
+  /**
+   * Crea versione DOPO: la riga corrente resta solo PRIMA, si aggiunge una copia solo DOPO.
+   */
+  creaVersioneDopoLocale(edificioId, pianoId, localeId) {
+    const localeOrigine = this.getLocale(edificioId, pianoId, localeId);
+    const piano = this.getPiano(edificioId, pianoId);
+    const edificio = this.getEdificio(edificioId);
+    if (!localeOrigine || !piano || !edificio) {
+      return null;
+    }
+
+    if (!localeOrigine.partecipaDopo) {
+      return null;
+    }
+
+    localeOrigine.partecipaDopo = false;
+
+    const nomeBase = (localeOrigine.nome || 'Locale').replace(/\s*\(dopo\)\s*$/i, '').trim();
+    const nuovoLocale = {
+      ...JSON.parse(JSON.stringify(localeOrigine)),
+      id: this.generateId(),
+      nome: `${nomeBase} (dopo)`,
+      edificioId,
+      edificioNome: edificio.nome,
+      pianoId,
+      pianoNome: piano.nome,
+      partecipaPrima: false,
+      partecipaDopo: true,
       aperture: Array.isArray(localeOrigine.aperture)
         ? JSON.parse(JSON.stringify(localeOrigine.aperture))
         : [],

@@ -7,8 +7,10 @@
   <!-- Bootstrap CSS -->
   <link href="vendor/bootstrap/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="styles/main.css">
+  <link rel="stylesheet" href="styles/report-filtri.css">
   <link rel="stylesheet" href="styles/aggetti.css">
   <link rel="stylesheet" href="styles/schema-aggetto.css">
+  <link rel="stylesheet" href="styles/locale-scenario.css">
 </head>
 <body>
   <div id="app" class="d-flex flex-column vh-100">
@@ -49,7 +51,8 @@
           <button id="btn-report" class="btn btn-outline-light btn-sm">Rapporti</button>
           <button id="btn-riepilogo-superfici" class="btn btn-outline-light btn-sm">Superfici Residenziali</button>
           <button id="btn-riepilogo-superfici-non-residenziali" class="btn btn-outline-light btn-sm">Superfici Non Residenziali</button>
-          <button id="btn-costo-costruzione" class="btn btn-outline-light btn-sm">Costo di Costruzione</button>
+          <button id="btn-costo" class="btn btn-outline-light btn-sm">COSTO</button>
+          <button id="btn-confronto" class="btn btn-outline-light btn-sm">CONFRONTO</button>
           <button id="btn-chiudi-app" class="btn btn-danger btn-sm">Chiudi</button>
         </div>
       </div>
@@ -119,14 +122,50 @@
       <!-- Vista Report -->
       <div id="view-report" class="view">
         <div class="d-flex justify-content-between align-items-center mb-4">
-          <h2 class="text-primary">Report Riepilogativi</h2>
+          <h2 class="text-primary mb-0">
+            Report Riepilogativi
+            <span class="report-filtri-hint">(Apri ogni casella, togli &quot;Tutti&quot; e spunta solo i valori da includere nel report.)</span>
+          </h2>
         </div>
-        <div class="d-flex gap-2 mb-3 align-items-end">
-          <div class="flex-grow-1" style="min-width: 200px;">
-            <label class="form-label">Edificio</label>
-            <select id="select-edificio-report" class="form-select">
-              <option value="">Tutti gli edifici</option>
-            </select>
+        <div class="d-flex gap-2 mb-3 align-items-end flex-wrap report-filtri-bar">
+          <div class="report-combobox" id="report-cb-edifici" style="min-width: 200px; flex: 1 1 200px;">
+            <label class="form-label">Edifici</label>
+            <button type="button" class="report-combobox-toggle" aria-expanded="false">
+              <span class="report-combobox-summary">Tutti gli edifici</span>
+            </button>
+            <div class="report-combobox-menu d-none">
+              <div class="report-combobox-tutti">
+                <input type="checkbox" class="form-check-input report-combobox-chk-tutti" id="report-cb-edifici-tutti" checked>
+                <label class="form-check-label" for="report-cb-edifici-tutti">Tutti gli edifici</label>
+              </div>
+              <div class="report-combobox-scroll"></div>
+            </div>
+          </div>
+          <div class="report-combobox" id="report-cb-piani" style="min-width: 200px; flex: 1 1 200px;">
+            <label class="form-label">Piani</label>
+            <button type="button" class="report-combobox-toggle" aria-expanded="false">
+              <span class="report-combobox-summary">Tutti i piani</span>
+            </button>
+            <div class="report-combobox-menu d-none">
+              <div class="report-combobox-tutti">
+                <input type="checkbox" class="form-check-input report-combobox-chk-tutti" id="report-cb-piani-tutti" checked>
+                <label class="form-check-label" for="report-cb-piani-tutti">Tutti i piani</label>
+              </div>
+              <div class="report-combobox-scroll"></div>
+            </div>
+          </div>
+          <div class="report-combobox" id="report-cb-locali" style="min-width: 220px; flex: 1 1 220px;">
+            <label class="form-label">Locali</label>
+            <button type="button" class="report-combobox-toggle" aria-expanded="false">
+              <span class="report-combobox-summary">Tutti i locali</span>
+            </button>
+            <div class="report-combobox-menu d-none">
+              <div class="report-combobox-tutti">
+                <input type="checkbox" class="form-check-input report-combobox-chk-tutti" id="report-cb-locali-tutti" checked>
+                <label class="form-check-label" for="report-cb-locali-tutti">Tutti i locali</label>
+              </div>
+              <div class="report-combobox-scroll"></div>
+            </div>
           </div>
           <button id="btn-genera-report" class="btn btn-primary">Genera Report</button>
           <button id="btn-aggetti" class="btn btn-info">AGGETTI</button>
@@ -144,32 +183,53 @@
 
       <!-- Vista Riepilogo Superfici -->
       <div id="view-riepilogo-superfici" class="view">
-        <div class="d-flex justify-content-between align-items-center mb-4">
-          <h2 class="text-primary">Riepilogo Superfici per Tipologia</h2>
+        <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+          <h2 class="text-primary mb-0 d-flex align-items-center flex-wrap gap-2">
+            <span>Riepilogo Superfici per Tipologia</span>
+            <span id="riepilogo-superfici-scenario-label" class="badge bg-primary riepilogo-scenario-label">DOPO</span>
+          </h2>
+          <div class="btn-group btn-group-sm riepilogo-scenario-toggle" role="group" aria-label="Filtra locali PRIMA o DOPO">
+            <button type="button" id="btn-riepilogo-superfici-prima" class="btn btn-outline-primary">PRIMA</button>
+            <button type="button" id="btn-riepilogo-superfici-dopo" class="btn btn-outline-primary active">DOPO</button>
+          </div>
         </div>
         <div id="riepilogo-superfici-content" class="card shadow-sm"></div>
       </div>
 
       <!-- Vista Riepilogo Superfici Non Residenziali -->
       <div id="view-riepilogo-superfici-non-residenziali" class="view">
-        <div class="d-flex justify-content-between align-items-center mb-4">
-          <h2 class="text-primary">Riepilogo Superfici Non Residenziali</h2>
+        <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+          <h2 class="text-primary mb-0 d-flex align-items-center flex-wrap gap-2">
+            <span>Riepilogo Superfici Non Residenziali</span>
+            <span id="riepilogo-superfici-non-residenziali-scenario-label" class="badge bg-primary riepilogo-scenario-label">DOPO</span>
+          </h2>
+          <div class="btn-group btn-group-sm riepilogo-scenario-toggle" role="group" aria-label="Filtra locali PRIMA o DOPO">
+            <button type="button" id="btn-riepilogo-superfici-non-residenziali-prima" class="btn btn-outline-primary">PRIMA</button>
+            <button type="button" id="btn-riepilogo-superfici-non-residenziali-dopo" class="btn btn-outline-primary active">DOPO</button>
+          </div>
         </div>
         <div id="riepilogo-superfici-non-residenziali-content" class="card shadow-sm"></div>
       </div>
 
-      <!-- Vista Costo di Costruzione -->
-      <div id="view-costo-costruzione" class="view">
-        <div class="d-flex justify-content-between align-items-center mb-4">
-          <h2 class="text-primary">Costo di Costruzione</h2>
+      <!-- Vista COSTO (PRIMA / DOPO sulla stessa schermata) -->
+      <div id="view-costo" class="view">
+        <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+          <h2 class="text-primary mb-0 d-flex align-items-center flex-wrap gap-2">
+            <span>COSTO</span>
+            <span id="costo-scenario-label" class="badge bg-primary riepilogo-scenario-label">DOPO</span>
+          </h2>
+          <div class="btn-group btn-group-sm riepilogo-scenario-toggle" role="group" aria-label="Filtra locali PRIMA o DOPO nel calcolo costo">
+            <button type="button" id="btn-costo-scenario-prima" class="btn btn-outline-primary">PRIMA</button>
+            <button type="button" id="btn-costo-scenario-dopo" class="btn btn-outline-primary active">DOPO</button>
+          </div>
         </div>
         <div class="d-flex gap-3 flex-nowrap">
-          <aside id="sidebar-costo-costruzione" class="costo-costruzione-sidebar card shadow-sm flex-shrink-0">
+          <aside id="sidebar-costo" class="costo-costruzione-sidebar card shadow-sm flex-shrink-0">
             <div class="card-header py-2">
               <strong>Sezioni</strong>
             </div>
-            <div id="sidebar-costo-costruzione-list" class="list-group list-group-flush list-group-sm overflow-auto" style="max-height: 70vh;"></div>
-            <div id="sidebar-mini-riepilogo" class="sidebar-mini-riepilogo card-footer small border-top py-2 px-2">
+            <div id="sidebar-costo-list" class="list-group list-group-flush list-group-sm overflow-auto" style="max-height: 70vh;"></div>
+            <div class="sidebar-mini-riepilogo card-footer small border-top py-2 px-2">
               <div class="d-flex justify-content-between align-items-baseline"><span>Contributo:</span> <span class="sidebar-mini-valore"><span id="sidebar-mini-contributo">0,00</span> €</span></div>
               <div class="d-flex justify-content-between align-items-baseline"><span>Primaria:</span> <span class="sidebar-mini-valore"><span id="sidebar-mini-primaria">0,00</span> €</span></div>
               <div class="d-flex justify-content-between align-items-baseline"><span>Secondaria:</span> <span class="sidebar-mini-valore"><span id="sidebar-mini-secondaria">0,00</span> €</span></div>
@@ -178,9 +238,18 @@
             </div>
           </aside>
           <div class="flex-grow-1 min-w-0">
-            <div id="costo-costruzione-content" class="card shadow-sm p-4"></div>
+            <div id="costo-content" class="card shadow-sm p-4 costo-scenario-panel"></div>
           </div>
         </div>
+      </div>
+
+      <!-- Vista CONFRONTO PRIMA vs DOPO -->
+      <div id="view-confronto" class="view">
+        <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+          <h2 class="text-primary mb-0">CONFRONTO</h2>
+          <span class="text-muted small">Confronto costi tra locali PRIMA e DOPO</span>
+        </div>
+        <div id="confronto-costo-content" class="card shadow-sm p-4"></div>
       </div>
     </main>
   </div>
